@@ -21,6 +21,7 @@ matrix:
       python: 3.6
     - os: linux
       python: 3.6
+      env: TOXENV=flake8
     - os: linux
       python: nightly
       env: TOXENV=py37
