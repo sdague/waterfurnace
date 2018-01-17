@@ -37,11 +37,12 @@ setup(
     author_email='sean@dague.net',
     url='https://github.com/sdague/waterfurnace',
     packages=find_packages(include=['waterfurnace']),
-    entry_points={
-        'console_scripts': [
-            'waterfurnace=waterfurnace.cli:main'
-        ]
-    },
+    # TODO(sdague): bring back when we add a cli
+    # entry_points={
+    #     'console_scripts': [
+    #         'waterfurnace=waterfurnace.cli:main'
+    #     ]
+    # },
     include_package_data=True,
     install_requires=requirements,
     license="Apache Software License 2.0",
