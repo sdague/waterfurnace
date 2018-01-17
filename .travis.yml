@@ -24,9 +24,4 @@ matrix:
     - os: linux
       python: nightly
       env: TOXENV=py37
-python:
-- 3.6
-- 3.5
-- 3.4
-- flake8
 script: tox
