@@ -24,6 +24,17 @@ FURNACE_MODE = (
     'Aux Heat',
     'Lockout')
 
+FAILED_LOGIN = ("Your login failed. Please check your email address "
+                "/ password and try again.")
+
+
+class WFCredentialError(Exception):
+    pass
+
+
+class WFError(Exception):
+    pass
+
 
 class WaterFurnace(object):
 
@@ -31,14 +42,20 @@ class WaterFurnace(object):
         self.user = user
         self.passwd = passwd
         self.unit = unit
-        self.session_id = None
+        self.sessionid = None
 
     def _get_session_id(self):
         data = dict(emailaddress=self.user, password=self.passwd, op="login")
         headers = {"user-agent": USER_AGENT}
         res = requests.post(WF_LOGIN_URL, data=data, headers=headers,
                             allow_redirects=False)
-        self.sessionid = res.cookies["sessionid"]
+        try:
+            self.sessionid = res.cookies["sessionid"]
+        except KeyError:
+            if FAILED_LOGIN in res.content:
+                raise WFCredentialError()
+            else:
+                raise WFError()
 
     def _login_ws(self):
         self.ws = websocket.create_connection(
