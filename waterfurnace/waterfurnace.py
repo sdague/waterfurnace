@@ -43,6 +43,7 @@ class WaterFurnace(object):
         self.passwd = passwd
         self.unit = unit
         self.sessionid = None
+        self.tid = 0
 
     def _get_session_id(self):
         data = dict(emailaddress=self.user, password=self.passwd, op="login")
@@ -60,21 +61,25 @@ class WaterFurnace(object):
     def _login_ws(self):
         self.ws = websocket.create_connection(
             "wss://awlclientproxy.mywaterfurnace.com/")
-        login = {"cmd": "login", "tid": 2, "source": "consumer dashboard",
+        login = {"cmd": "login", "tid": self.tid,
+                 "source": "consumer dashboard",
                  "sessionid": self.sessionid}
         self.ws.send(json.dumps(login))
         # TODO(sdague): we should probably check the response, but
         # it's not clear anything is useful in it.
         self.ws.recv()
+        self.tid += 1
 
     def login(self):
         self._get_session_id()
+        # reset the transaction id if we start over
+        self.tid = 1
         self._login_ws()
 
     def read(self):
         req = {
             "cmd": "read",
-            "tid": 3,
+            "tid": self.tid,
             "awlid": self.unit,
             "zone": 0,
             "rlist": [  # the list of sensors to return readings for
@@ -116,6 +121,7 @@ class WaterFurnace(object):
             "source": "consumer dashboard"}
         self.ws.send(json.dumps(req))
         data = self.ws.recv()
+        self.tid += 1
         datadecoded = json.loads(data)
         return WFReading(datadecoded)
 
