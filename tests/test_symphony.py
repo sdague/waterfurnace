@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """Tests for `waterfurnace` package."""
 
+import json
 import mock
 import unittest
 
@@ -69,8 +69,9 @@ class TestSymphony(unittest.TestCase):
             mock.sentinel.email, mock.sentinel.passwd, mock.sentinel.unit)
         w.login()
         assert m_ws.method_calls[0] == mock.call.send(
-            '{"cmd": "login", "tid": 1, "source": '
-            '"consumer dashboard", "sessionid": "sentinel.sessionid"}')
+            json.dumps({"cmd": "login", "tid": 1,
+                        "source": "consumer dashboard",
+                        "sessionid": "sentinel.sessionid"}))
         assert m_ws.method_calls[1] == mock.call.recv()
 
     @mock.patch('websocket.create_connection')
