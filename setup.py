@@ -31,7 +31,7 @@ test_requirements = [
 
 setup(
     name='waterfurnace',
-    version='0.1.0',
+    version='0.2.0',
     description="Python interface for waterfurnace geothermal systems",
     long_description=readme + '\n\n' + history,
     author="Sean Dague",
