@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """Main module."""
+import logging
 import json
 
 import requests
 import websocket
 
+_LOGGER = logging.getLogger(__name__)
 
 USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) "
               "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -45,6 +47,9 @@ class WaterFurnace(object):
         self.sessionid = None
         self.tid = 0
 
+    def next_tid(self):
+        self.tid = (self.tid + 1) % 256
+
     def _get_session_id(self):
         data = dict(emailaddress=self.user, password=self.passwd, op="login")
         headers = {"user-agent": USER_AGENT}
@@ -67,8 +72,9 @@ class WaterFurnace(object):
         self.ws.send(json.dumps(login))
         # TODO(sdague): we should probably check the response, but
         # it's not clear anything is useful in it.
-        self.ws.recv()
-        self.tid += 1
+        recv = self.ws.recv()
+        _LOGGER.debug("Login response: %s" % recv)
+        self.next_tid()
 
     def login(self):
         self._get_session_id()
@@ -119,11 +125,16 @@ class WaterFurnace(object):
                 "TStatCoolingSetpoint",
                 "AWLTStatType"],
             "source": "consumer dashboard"}
+        _LOGGER.debug("Req: %s" % req)
         self.ws.send(json.dumps(req))
         data = self.ws.recv()
-        self.tid += 1
+        self.next_tid()
         datadecoded = json.loads(data)
-        return WFReading(datadecoded)
+        _LOGGER.debug("Resp: %s" % datadecoded)
+        if not datadecoded['err']:
+            return WFReading(datadecoded)
+        else:
+            raise WFError(datadecoded['err'])
 
 
 class WFReading(object):
