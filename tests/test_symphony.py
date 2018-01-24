@@ -83,7 +83,7 @@ class TestSymphony(unittest.TestCase):
         m_ws = mock.MagicMock()
         # we need to give the json return something non magic
         # otherwise it can't deserialize
-        m_ws.recv.return_value = '{"a": "b"}'
+        m_ws.recv.return_value = '{"a": "b", "err": ""}'
         mock_ws_create.return_value = m_ws
 
         w = wf.WaterFurnace(
