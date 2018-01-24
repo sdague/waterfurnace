@@ -48,7 +48,7 @@ class WaterFurnace(object):
         self.tid = 0
 
     def next_tid(self):
-        self.tid = (self.tid + 1) % 256
+        self.tid = (self.tid + 1) % 100
 
     def _get_session_id(self):
         data = dict(emailaddress=self.user, password=self.passwd, op="login")
