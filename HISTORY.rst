@@ -2,6 +2,11 @@
 History
 =======
 
+0.4.0 (2018-02-05)
+------------------
+
+* More exceptions to distinguish errors we are expecting
+
 0.3.0 (2018-01-23)
 ------------------
 
