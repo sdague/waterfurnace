@@ -30,11 +30,19 @@ FAILED_LOGIN = ("Your login failed. Please check your email address "
                 "/ password and try again.")
 
 
-class WFCredentialError(Exception):
+class WFException(Exception):
     pass
 
 
-class WFError(Exception):
+class WFCredentialError(WFException):
+    pass
+
+
+class WFWebsocketClosedError(WFException):
+    pass
+
+
+class WFError(WFException):
     pass
 
 
@@ -126,15 +134,18 @@ class WaterFurnace(object):
                 "AWLTStatType"],
             "source": "consumer dashboard"}
         _LOGGER.debug("Req: %s" % req)
-        self.ws.send(json.dumps(req))
-        data = self.ws.recv()
-        self.next_tid()
-        datadecoded = json.loads(data)
-        _LOGGER.debug("Resp: %s" % datadecoded)
-        if not datadecoded['err']:
-            return WFReading(datadecoded)
-        else:
-            raise WFError(datadecoded['err'])
+        try:
+            self.ws.send(json.dumps(req))
+            data = self.ws.recv()
+            self.next_tid()
+            datadecoded = json.loads(data)
+            _LOGGER.debug("Resp: %s" % datadecoded)
+            if not datadecoded['err']:
+                return WFReading(datadecoded)
+            else:
+                raise WFError(datadecoded['err'])
+        except websocket.WebSocketConnectionClosedException:
+            raise WFWebsocketClosedError()
 
 
 class WFReading(object):
