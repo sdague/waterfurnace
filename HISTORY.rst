@@ -2,6 +2,11 @@
 History
 =======
 
+0.5.0 (2018-02-16)
+------------------
+
+* Update exception handling to be more Home Assistant friendly
+
 0.4.0 (2018-02-05)
 ------------------
 
