@@ -190,6 +190,5 @@ class TestReadData(unittest.TestCase):
         w = wf.WaterFurnace(
             mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit))
         w.login()
-        with pytest.raises(wf.WFError) as err:
+        with pytest.raises(wf.WFWebsocketClosedError):
             w.read()
-        assert "something went wrong" == str(err.value)
