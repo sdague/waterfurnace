@@ -73,7 +73,7 @@ class WaterFurnace(object):
 
     def _login_ws(self):
         self.ws = websocket.create_connection(
-            "wss://awlclientproxy.mywaterfurnace.com/")
+            "wss://awlclientproxy.mywaterfurnace.com/", timeout=30)
         login = {"cmd": "login", "tid": self.tid,
                  "source": "consumer dashboard",
                  "sessionid": self.sessionid}
