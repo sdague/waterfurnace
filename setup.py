@@ -14,7 +14,7 @@ with open('HISTORY.rst') as history_file:
 requirements = [
     'Click>=6.0',
     'requests>=2.18',
-    'websocket-client>=0.46',
+    'websocket-client>=0.47',
     # TODO: put package requirements here
 ]
 

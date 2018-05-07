@@ -29,6 +29,8 @@ FURNACE_MODE = (
 FAILED_LOGIN = ("Your login failed. Please check your email address "
                 "/ password and try again.")
 
+TIMEOUT = 30
+
 
 class WFException(Exception):
     pass
@@ -62,6 +64,7 @@ class WaterFurnace(object):
         data = dict(emailaddress=self.user, password=self.passwd, op="login")
         headers = {"user-agent": USER_AGENT}
         res = requests.post(WF_LOGIN_URL, data=data, headers=headers,
+                            timeout=TIMEOUT,
                             allow_redirects=False)
         try:
             self.sessionid = res.cookies["sessionid"]
@@ -73,7 +76,7 @@ class WaterFurnace(object):
 
     def _login_ws(self):
         self.ws = websocket.create_connection(
-            "wss://awlclientproxy.mywaterfurnace.com/", timeout=30)
+            "wss://awlclientproxy.mywaterfurnace.com/", timeout=TIMEOUT)
         login = {"cmd": "login", "tid": self.tid,
                  "source": "consumer dashboard",
                  "sessionid": self.sessionid}
