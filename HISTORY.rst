@@ -2,7 +2,7 @@
 History
 =======
 
-0.6.1 (2018-07-13)
+0.7.0 (2018-07-13)
 ------------------
 
 * Add workaround timer to handle socket failures
