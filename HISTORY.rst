@@ -2,6 +2,11 @@
 History
 =======
 
+0.6.1 (2018-07-13)
+------------------
+
+* Add workaround timer to handle socket failures
+
 0.6.0 (2018-02-21)
 ------------------
 
