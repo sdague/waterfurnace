@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """Main module."""
+import copy
 import logging
 import json
+import threading
 
 import requests
 import websocket
@@ -29,7 +31,50 @@ FURNACE_MODE = (
 FAILED_LOGIN = ("Your login failed. Please check your email address "
                 "/ password and try again.")
 
-TIMEOUT = 30
+TIMEOUT = 15
+
+DATA_REQUEST = {
+    "cmd": "read",
+    "tid": None,
+    "awlid": None,
+    "zone": 0,
+    "rlist": [  # the list of sensors to return readings for
+        "compressorpower",
+        "fanpower",
+        "auxpower",
+        "looppumppower",
+        "totalunitpower",
+        "AWLABCType",
+        "ModeOfOperation",
+        "ActualCompressorSpeed",
+        "AirflowCurrentSpeed",
+        "AuroraOutputEH1",
+        "AuroraOutputEH2",
+        "AuroraOutputCC",
+        "AuroraOutputCC2",
+        "TStatDehumidSetpoint",
+        "TStatHumidSetpoint",
+        "TStatRelativeHumidity",
+        "LeavingAirTemp",
+        "TStatRoomTemp",
+        "EnteringWaterTemp",
+        "AOCEnteringWaterTemp",
+        "lockoutstatus",
+        "lastfault",
+        "lastlockout",
+        "humidity_offset_settings",
+        "humidity",
+        "outdoorair",
+        "homeautomationalarm1",
+        "homeautomationalarm2",
+        "roomtemp",
+        "activesettings",
+        "TStatActiveSetpoint",
+        "TStatMode",
+        "TStatHeatingSetpoint",
+        "TStatCoolingSetpoint",
+        "AWLTStatType"],
+    "source": "consumer dashboard"}
 
 
 class WFException(Exception):
@@ -93,53 +138,28 @@ class WaterFurnace(object):
         self.tid = 1
         self._login_ws()
 
-    def read(self):
-        req = {
-            "cmd": "read",
-            "tid": self.tid,
-            "awlid": self.unit,
-            "zone": 0,
-            "rlist": [  # the list of sensors to return readings for
-                "compressorpower",
-                "fanpower",
-                "auxpower",
-                "looppumppower",
-                "totalunitpower",
-                "AWLABCType",
-                "ModeOfOperation",
-                "ActualCompressorSpeed",
-                "AirflowCurrentSpeed",
-                "AuroraOutputEH1",
-                "AuroraOutputEH2",
-                "AuroraOutputCC",
-                "AuroraOutputCC2",
-                "TStatDehumidSetpoint",
-                "TStatHumidSetpoint",
-                "TStatRelativeHumidity",
-                "LeavingAirTemp",
-                "TStatRoomTemp",
-                "EnteringWaterTemp",
-                "AOCEnteringWaterTemp",
-                "lockoutstatus",
-                "lastfault",
-                "lastlockout",
-                "humidity_offset_settings",
-                "humidity",
-                "outdoorair",
-                "homeautomationalarm1",
-                "homeautomationalarm2",
-                "roomtemp",
-                "activesettings",
-                "TStatActiveSetpoint",
-                "TStatMode",
-                "TStatHeatingSetpoint",
-                "TStatCoolingSetpoint",
-                "AWLTStatType"],
-            "source": "consumer dashboard"}
+    def _abort(self, *args, **kwargs):
+        _LOGGER.warning("Aborted read request")
+        self.ws.abort()
+
+    def _ws_read(self):
+        req = copy.deepcopy(DATA_REQUEST)
+        req["tid"] = self.tid
+        req["awlid"] = self.unit
+
         _LOGGER.debug("Req: %s" % req)
+        timer = threading.Timer(1.0, self._abort, [self])
+        timer.start()
+        self.ws.send(json.dumps(req))
+        _LOGGER.debug("Successful send")
+        data = self.ws.recv()
+        _LOGGER.debug("Successful recv")
+        timer.cancel()
+        return data
+
+    def read(self):
         try:
-            self.ws.send(json.dumps(req))
-            data = self.ws.recv()
+            data = self._ws_read()
             self.next_tid()
             datadecoded = json.loads(data)
             _LOGGER.debug("Resp: %s" % datadecoded)
