@@ -130,7 +130,7 @@ class WaterFurnace(object):
             _LOGGER.debug("Response: {}".format(res))
             _LOGGER.debug("Response Cookies: {}".format(res.cookies))
             _LOGGER.debug("Response Content: {}".format(res.content))
-            if FAILED_LOGIN in res.content.decode("utf-8"):
+            if FAILED_LOGIN in res.content:
                 _LOGGER.error("Failed to log in, "
                               "are you sure your user / password are correct")
                 raise WFCredentialError()
