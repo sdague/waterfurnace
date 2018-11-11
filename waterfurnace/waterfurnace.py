@@ -189,6 +189,9 @@ class WaterFurnace(object):
                 raise WFError(datadecoded['err'])
         except websocket.WebSocketConnectionClosedException:
             raise WFWebsocketClosedError()
+        except ValueError:
+            _LOGGER.exception("Unable to decode data as json: {}".format(data))
+            raise WFWebsocketClosedError()
         except Exception:
             _LOGGER.exception("Unknown exception, socket probably failed")
             raise WFWebsocketClosedError()
