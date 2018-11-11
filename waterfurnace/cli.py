@@ -12,7 +12,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
 
-
 @click.command()
 @click.option('-u', '--username', 'user', required=True)
 @click.option('-p', '--password', 'passwd', required=True)
@@ -30,6 +29,7 @@ def main(user, passwd, unit):
     click.echo("Attempting to read data")
     data = wf.read()
     click.echo(data)
+
 
 if __name__ == "__main__":
     main()

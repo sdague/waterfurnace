@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 
 """Main module."""
-import http.cookiejar
 import copy
 import logging
 import json
 import threading
 import time
 
-import urllib
 import requests
 import websocket
 
