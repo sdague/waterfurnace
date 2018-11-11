@@ -119,23 +119,22 @@ class WaterFurnace(object):
             "user-agent": USER_AGENT,
         }
 
-        # req = urllib.request.Request(
-        #     WF_LOGIN_URL,
-        #     method="post",
-        #     data=urllib.parse.urlencode(data).encode(),
-        #     headers=headers)
-        # res = urllib.request.urlopen(req)
         res = requests.post(WF_LOGIN_URL, data=data, headers=headers,
-                            cookies={"legal-acknowledge": "yes"},
+                            cookies={"legal-acknowledge": "yes",
+                                     "gwid": self.unit,
+                                     "energy-base-price": "0.15"},
                             timeout=TIMEOUT, allow_redirects=False)
-        _LOGGER.debug(res)
-        # _LOGGER.debug(res.read())
-        _LOGGER.debug(res.cookies)
-        _LOGGER.debug(res.content)
         try:
             self.sessionid = res.cookies["sessionid"]
         except KeyError:
+            _LOGGER.error("Did not find expected session cookie, login failed."
+                          " A lot of debug info coming...")
+            _LOGGER.debug("Response: {}".format(res))
+            _LOGGER.debug("Response Cookies: {}".format(res.cookies))
+            _LOGGER.debug("Response Content: {}".format(res.content))
             if FAILED_LOGIN in res.content.decode("utf-8"):
+                _LOGGER.error("Failed to log in, "
+                              "are you sure your user / password are correct")
                 raise WFCredentialError()
             else:
                 raise WFError()

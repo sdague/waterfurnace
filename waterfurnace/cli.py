@@ -27,6 +27,9 @@ def main(user, passwd, unit):
 
     click.echo("Login Succeeded: session_id = {}".format(wf.sessionid))
 
+    click.echo("Attempting to read data")
+    data = wf.read()
+    click.echo(data)
 
 if __name__ == "__main__":
     main()
