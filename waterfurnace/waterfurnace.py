@@ -1,19 +1,22 @@
 # -*- coding: utf-8 -*-
 
 """Main module."""
+import http.cookiejar
 import copy
 import logging
 import json
 import threading
+import time
 
+import urllib
 import requests
 import websocket
 
 _LOGGER = logging.getLogger(__name__)
 
-USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) "
-              "AppleWebKit/537.36 (KHTML, like Gecko) "
-              "Chrome/42.0.2311.90 Safari/537.36")
+USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Ubuntu Chromium/70.0.3538.77 "
+              "Chrome/70.0.3538.77 Safari/537.36")
 WF_LOGIN_URL = 'https://symphony.mywaterfurnace.com/account/login'
 
 FURNACE_MODE = (
@@ -32,6 +35,7 @@ FAILED_LOGIN = ("Your login failed. Please check your email address "
                 "/ password and try again.")
 
 TIMEOUT = 15
+ERROR_INTERVAL = 300
 
 DATA_REQUEST = {
     "cmd": "read",
@@ -95,26 +99,43 @@ class WFError(WFException):
 
 class WaterFurnace(object):
 
-    def __init__(self, user, passwd, unit):
+    def __init__(self, user, passwd, unit, max_fails=5):
         self.user = user
         self.passwd = passwd
         self.unit = unit
         self.sessionid = None
         self.tid = 0
+        # For retry logic
+        self.max_fails = max_fails
+        self.fails = 0
 
     def next_tid(self):
         self.tid = (self.tid + 1) % 100
 
     def _get_session_id(self):
-        data = dict(emailaddress=self.user, password=self.passwd, op="login")
-        headers = {"user-agent": USER_AGENT}
+        data = dict(emailaddress=self.user, password=self.passwd, op="login",
+                    redirect="/")
+        headers = {
+            "user-agent": USER_AGENT,
+        }
+
+        # req = urllib.request.Request(
+        #     WF_LOGIN_URL,
+        #     method="post",
+        #     data=urllib.parse.urlencode(data).encode(),
+        #     headers=headers)
+        # res = urllib.request.urlopen(req)
         res = requests.post(WF_LOGIN_URL, data=data, headers=headers,
-                            timeout=TIMEOUT,
-                            allow_redirects=False)
+                            cookies={"legal-acknowledge": "yes"},
+                            timeout=TIMEOUT, allow_redirects=False)
+        _LOGGER.debug(res)
+        # _LOGGER.debug(res.read())
+        _LOGGER.debug(res.cookies)
+        _LOGGER.debug(res.content)
         try:
             self.sessionid = res.cookies["sessionid"]
         except KeyError:
-            if FAILED_LOGIN in res.content:
+            if FAILED_LOGIN in res.content.decode("utf-8"):
                 raise WFCredentialError()
             else:
                 raise WFError()
@@ -172,6 +193,22 @@ class WaterFurnace(object):
         except Exception:
             _LOGGER.exception("Unknown exception, socket probably failed")
             raise WFWebsocketClosedError()
+
+    def read_with_retry(self):
+        while self.fails <= self.max_fails:
+            try:
+                if self.fails >= 1:
+                    self.login()
+                    _LOGGER.debug("Reconnected to furnace")
+                data = self.read()
+                self.fails = 0
+                return data
+            except WFWebsocketClosedError:
+                self.fails = self.fails + 1
+                _LOGGER.error("websocket read failed, attempting to reconnect")
+                time.sleep(self.fails * ERROR_INTERVAL)
+        raise WFWebsocketClosedError(
+            "Failed to refresh credentials after retries")
 
 
 class WFReading(object):

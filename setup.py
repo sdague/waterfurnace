@@ -33,6 +33,11 @@ setup(
     name='waterfurnace',
     version='0.7.0',
     description="Python interface for waterfurnace geothermal systems",
+    entry_points={
+        'console_scripts': [
+            'waterfurnace-debug=waterfurnace.cli:main'
+        ]
+    },
     long_description=readme + '\n\n' + history,
     author="Sean Dague",
     author_email='sean@dague.net',
