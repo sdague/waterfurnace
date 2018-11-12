@@ -101,6 +101,7 @@ class WaterFurnace(object):
         self.user = user
         self.passwd = passwd
         self.unit = unit
+        self.gwid = None
         self.sessionid = None
         self.tid = 0
         # For retry logic
@@ -147,7 +148,9 @@ class WaterFurnace(object):
         # TODO(sdague): we should probably check the response, but
         # it's not clear anything is useful in it.
         recv = self.ws.recv()
-        _LOGGER.debug("Login response: %s" % recv)
+        data = json.loads(recv)
+        _LOGGER.debug("Login response: %s" % data)
+        self.gwid = data["locations"][0]["gateways"][0]["gwid"]
         self.next_tid()
 
     def login(self):
@@ -163,7 +166,7 @@ class WaterFurnace(object):
     def _ws_read(self):
         req = copy.deepcopy(DATA_REQUEST)
         req["tid"] = self.tid
-        req["awlid"] = self.unit
+        req["awlid"] = self.gwid
 
         _LOGGER.debug("Req: %s" % req)
         timer = threading.Timer(1.0, self._abort, [self])
