@@ -55,7 +55,7 @@ DATA_REQUEST = {
         "AuroraOutputCC",
         "AuroraOutputCC2",
         "TStatDehumidSetpoint",
-        # "TStatHumidSetpoint",
+        "TStatHumidSetpoint",
         "TStatRelativeHumidity",
         "LeavingAirTemp",
         "TStatRoomTemp",
@@ -64,9 +64,9 @@ DATA_REQUEST = {
         "lockoutstatus",
         "lastfault",
         "lastlockout",
-        # "humidity_offset_settings",
-        # "humidity",
-        # "outdoorair",
+        "humidity_offset_settings",
+        "humidity",
+        "outdoorair",
         "homeautomationalarm1",
         "homeautomationalarm2",
         "roomtemp",
@@ -97,10 +97,9 @@ class WFError(WFException):
 
 class WaterFurnace(object):
 
-    def __init__(self, user, passwd, unit, max_fails=5):
+    def __init__(self, user, passwd, max_fails=5):
         self.user = user
         self.passwd = passwd
-        self.unit = unit
         self.gwid = None
         self.sessionid = None
         self.tid = 0
@@ -120,7 +119,6 @@ class WaterFurnace(object):
 
         res = requests.post(WF_LOGIN_URL, data=data, headers=headers,
                             cookies={"legal-acknowledge": "yes",
-                                     "gwid": self.unit,
                                      "energy-base-price": "0.15"},
                             timeout=TIMEOUT, allow_redirects=False)
         try:
