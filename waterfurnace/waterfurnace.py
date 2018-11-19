@@ -232,6 +232,9 @@ class WFReading(object):
 
         # fan speed (0 - 10)
         self.airflowcurrentspeed = data.get('airflowcurrentspeed')
+        
+        # compressor speed
+        self.actualcompressorspeed = data.get('actualcompressorspeed')
 
         # humidity (%)
         self.tstatdehumidsetpoint = data.get('tstatdehumidsetpoint')
