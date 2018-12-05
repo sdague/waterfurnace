@@ -10,6 +10,19 @@ import pytest
 
 from waterfurnace import waterfurnace as wf
 
+FAKE_RESPONSE = {
+    "err": "",
+    "locations": [
+        {"gateways": [
+            {"gwid": "123456"}
+        ]
+        }
+    ]
+}
+
+
+FAKE_CONTENT = json.dumps(FAKE_RESPONSE)
+
 
 class FakeRequest(object):
     def __init__(self, status_code=200, content="", cookies=None):
@@ -28,7 +41,7 @@ class TestSymphony(unittest.TestCase):
         mock_req.return_value = FakeRequest(
             content="Error")
         w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, mock.sentinel.unit)
+            mock.sentinel.email, mock.sentinel.passwd)
         with pytest.raises(wf.WFError):
             w.login()
 
@@ -42,7 +55,7 @@ class TestSymphony(unittest.TestCase):
         mock_req.return_value = FakeRequest(
             content=LOGIN_MSG)
         w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, mock.sentinel.unit)
+            mock.sentinel.email, mock.sentinel.passwd)
         with pytest.raises(wf.WFCredentialError):
             w.login()
 
@@ -52,21 +65,23 @@ class TestSymphony(unittest.TestCase):
             cookies={"sessionid": mock.sentinel.sessionid}
         )
         w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, mock.sentinel.unit)
+            mock.sentinel.email, mock.sentinel.passwd)
         w._get_session_id()
         assert w.sessionid == mock.sentinel.sessionid
 
     @mock.patch('websocket.create_connection')
+    @mock.patch('websocket.recv')
     @mock.patch('requests.post')
-    def test_success_login(self, mock_req, mock_ws_create):
+    def test_success_login(self, mock_req, m_recv, mock_ws_create):
         mock_req.return_value = FakeRequest(
-            cookies={"sessionid": str(mock.sentinel.sessionid)}
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
         )
         m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
 
         w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, mock.sentinel.unit)
+            str(mock.sentinel.email), str(mock.sentinel.passwd))
         w.login()
         assert m_ws.method_calls[0] == mock.call.send(
             json.dumps({"cmd": "login", "tid": 1,
@@ -80,15 +95,23 @@ class TestSymphony(unittest.TestCase):
         mock_req.return_value = FakeRequest(
             cookies={"sessionid": str(mock.sentinel.sessionid)}
         )
+
+        # This starts getting tricky, because we need to change out
+        # the mock response after login to a different one for
+        # read. Getting pretty close to needing a simulator here.
         m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(
+            mock.sentinel.email, mock.sentinel.passwd)
+        w.login()
+
         # we need to give the json return something non magic
         # otherwise it can't deserialize
         m_ws.recv.return_value = '{"a": "b", "err": ""}'
         mock_ws_create.return_value = m_ws
 
-        w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit))
-        w.login()
         w.read()
         w.read()
         w.read()
@@ -103,10 +126,8 @@ class TestReadData(unittest.TestCase):
         mock_req.return_value = FakeRequest(
             cookies={"sessionid": str(mock.sentinel.sessionid)}
         )
-        m_ws = mock.MagicMock()
-        # we need to give the json return something non magic
-        # otherwise it can't deserialize
-        m_ws.recv.return_value = json.dumps(
+
+        fake_data = json.dumps(
             {"rsp": "read",
              "tid": 20,
              "err": "",
@@ -156,15 +177,23 @@ class TestReadData(unittest.TestCase):
              "tstatcoolingsetpoint": 75,
              "awltstattype": 103})
 
+        m_ws = mock.MagicMock()
+        # we need to give the json return something non magic
+        # otherwise it can't deserialize
+        m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
 
         w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit))
+            mock.sentinel.email, mock.sentinel.passwd)
         w.login()
+
+        # Replace the data packet once we get to read
+        m_ws.recv.return_value = fake_data
+
         data = w.read()
 
-        assert data.mode == "Fan Only"
         assert data.airflowcurrentspeed == 2
+        assert data.mode == "Fan Only"
         assert data.tstathumidsetpoint == 40
         assert data.tstatrelativehumidity == 45
         assert data.enteringwatertemp == 41.4
@@ -180,15 +209,19 @@ class TestReadData(unittest.TestCase):
         m_ws = mock.MagicMock()
         # we need to give the json return something non magic
         # otherwise it can't deserialize
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(
+            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit))
+        w.login()
+
+        # Replace the data content once we get to read
         m_ws.recv.return_value = json.dumps(
             {"rsp": "read",
              "tid": 20,
              "err": "something went wrong"})
 
         mock_ws_create.return_value = m_ws
-
-        w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit))
-        w.login()
         with pytest.raises(wf.WFWebsocketClosedError):
             w.read()

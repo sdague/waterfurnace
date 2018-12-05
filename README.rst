@@ -26,13 +26,39 @@ a documented or stable interface, so don't use this for critical
 systems. However, it is useful to record historical usage of your waterfurnace
 system.
 
+Usage
+=====
+
+```
+from waterfurnace.waterfurnace import WaterFurnace
+wf = WaterFurnace(user, pass)
+wf.login()
+data = wf.read()
+```
+
+The waterfurnace symphony service websocket monitors it's usage, so you need to
+do a data reading at least every 30 seconds otherwise the websocket is closed
+on the server side for resource constraints. The symphony website does a poll
+on the websocket every 5 seconds.
+
+Known Issues / limitations
+==========================
+
+* The python websocket code goes into a blocked state after long periods of
+  usage (always takes days to get to this state). I've yet to discover
+  why. Help welcome.
+* If you have multiple waterfurnace units on one account, this will only use
+  the first.
+
+License
+=======
 
 * Free software: Apache Software License 2.0
 .. * Documentation: https://waterfurnace.readthedocs.io.
 
 
 Credits
----------
+=======
 
 This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 

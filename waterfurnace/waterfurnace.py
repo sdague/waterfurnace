@@ -232,7 +232,7 @@ class WFReading(object):
 
         # fan speed (0 - 10)
         self.airflowcurrentspeed = data.get('airflowcurrentspeed')
-        
+
         # compressor speed
         self.actualcompressorspeed = data.get('actualcompressorspeed')
 
@@ -255,7 +255,7 @@ class WFReading(object):
     def mode(self):
         return FURNACE_MODE[self.modeofoperation]
 
-    def __str__(self):
+    def __repr__(self):
         return ("<FurnaceReading power=%d, mode=%s, looptemp=%.1f, "
                 "airtemp=%.1f, roomtemp=%.1f, setpoint=%d>" % (
                     self.totalunitpower,

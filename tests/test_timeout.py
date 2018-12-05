@@ -15,13 +15,32 @@ from waterfurnace import waterfurnace as wf
 _LOGGER = logging.getLogger(__name__)
 
 
+FAKE_RESPONSE = {
+    "err": "",
+    "locations": [
+        {"gateways": [
+            {"gwid": "123456"}
+        ]
+        }
+    ]
+}
+
+
+FAKE_CONTENT = json.dumps(FAKE_RESPONSE)
+
+
 class FakeWebsocket(object):
     stopped = False
+    logged_in = False
 
     def send(self, *args, **kwargs):
         pass
 
     def recv(self, *args, **kwargs):
+        if not self.logged_in:
+            self.logged_in = True
+            return FAKE_CONTENT
+
         for i in range(10):
             if self.stopped:
                 raise websocket.WebSocketConnectionClosedException()
@@ -56,5 +75,6 @@ class TestTimeout(unittest.TestCase):
         w = wf.WaterFurnace(
             mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit))
         w.login()
+
         with pytest.raises(wf.WFWebsocketClosedError):
             w.read()
