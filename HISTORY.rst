@@ -2,6 +2,11 @@
 History
 =======
 
+1.0.0 (2018-12-05)
+------------------
+* Detect unit automatically
+* Add series 7 sensors
+
 0.7.0 (2018-07-13)
 ------------------
 
