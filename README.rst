@@ -29,12 +29,12 @@ system.
 Usage
 =====
 
-```
-from waterfurnace.waterfurnace import WaterFurnace
-wf = WaterFurnace(user, pass)
-wf.login()
-data = wf.read()
-```
+.. code-block:: python
+
+   from waterfurnace.waterfurnace import WaterFurnace
+   wf = WaterFurnace(user, pass)
+   wf.login()
+   data = wf.read()
 
 The waterfurnace symphony service websocket monitors it's usage, so you need to
 do a data reading at least every 30 seconds otherwise the websocket is closed
@@ -49,6 +49,7 @@ Known Issues / limitations
   why. Help welcome.
 * If you have multiple waterfurnace units on one account, this will only use
   the first.
+
 
 License
 =======
