@@ -32,7 +32,7 @@ FURNACE_MODE = (
 FAILED_LOGIN = ("Your login failed. Please check your email address "
                 "/ password and try again.")
 
-TIMEOUT = 15
+TIMEOUT = 30
 ERROR_INTERVAL = 300
 
 DATA_REQUEST = {
@@ -158,8 +158,11 @@ class WaterFurnace(object):
         self._login_ws()
 
     def _abort(self, *args, **kwargs):
-        _LOGGER.warning("Aborted read request")
-        self.ws.abort()
+        _LOGGER.warning("Timeout on websocket request. Aborting websocket")
+        try:
+            self.ws.abort()
+        except Exception:
+            _LOGGER.exception("Can't abort, this might be interesting....")
 
     def _ws_read(self):
         req = copy.deepcopy(DATA_REQUEST)
@@ -167,7 +170,7 @@ class WaterFurnace(object):
         req["awlid"] = self.gwid
 
         _LOGGER.debug("Req: %s" % req)
-        timer = threading.Timer(1.0, self._abort, [self])
+        timer = threading.Timer(10.0, self._abort, [self])
         timer.start()
         self.ws.send(json.dumps(req))
         _LOGGER.debug("Successful send")
@@ -187,6 +190,7 @@ class WaterFurnace(object):
             else:
                 raise WFError(datadecoded['err'])
         except websocket.WebSocketConnectionClosedException:
+            _LOGGER.exception("Websocket closed, probably from a timeout")
             raise WFWebsocketClosedError()
         except ValueError:
             _LOGGER.exception("Unable to decode data as json: {}".format(data))
@@ -204,9 +208,13 @@ class WaterFurnace(object):
                 data = self.read()
                 self.fails = 0
                 return data
+            except requests.exceptions.RequestException:
+                self.fails = self.fails + 1
+                _LOGGER.exception("relogin failed, trying again")
+                time.sleep(self.fails * ERROR_INTERVAL)
             except WFWebsocketClosedError:
                 self.fails = self.fails + 1
-                _LOGGER.error("websocket read failed, attempting to reconnect")
+                _LOGGER.exception("websocket read failed, reconnecting")
                 time.sleep(self.fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError(
             "Failed to refresh credentials after retries")
