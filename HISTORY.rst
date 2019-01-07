@@ -2,6 +2,10 @@
 History
 =======
 
+1.1.0 (2019-01-07)
+------------------
+* Fix retry logic
+
 1.0.0 (2018-12-05)
 ------------------
 * Detect unit automatically
