@@ -61,6 +61,8 @@ DATA_REQUEST = {
         "TStatRoomTemp",
         "EnteringWaterTemp",
         "AOCEnteringWaterTemp",
+        "LeavingWaterTemp",
+        "WaterFlowRate",
         "lockoutstatus",
         "lastfault",
         "lastlockout",
@@ -253,11 +255,15 @@ class WFReading(object):
         self.leavingairtemp = data.get('leavingairtemp')
         self.tstatroomtemp = data.get('tstatroomtemp')
         self.enteringwatertemp = data.get('enteringwatertemp')
+        self.leavingwatertemp = data.get('leavingwatertemp')
 
         # setpoints (degrees F)
         self.tstatheatingsetpoint = data.get('tstatheatingsetpoint')
         self.tstatcoolingsetpoint = data.get('tstatcoolingsetpoint')
         self.tstatactivesetpoint = data.get('tstatactivesetpoint')
+
+        # Loop water flow rate (gallons per minute)
+        self.waterflowrate = data.get('waterflowrate')
 
     @property
     def mode(self):

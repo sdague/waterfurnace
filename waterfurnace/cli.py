@@ -4,30 +4,65 @@
 
 import click
 import logging
+import time
+import datetime
 
 import waterfurnace.waterfurnace
 
 logging.basicConfig()
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 @click.command()
-@click.option('-u', '--username', 'user', required=True)
-@click.option('-p', '--password', 'passwd', required=True)
-def main(user, passwd):
-    click.echo("User: {}, Pass: {}".format(user, passwd))
+@click.option('-u', '--username', 'user', required=True,
+              help='Symphony username')
+@click.option('-p', '--password', 'passwd', required=True,
+              help='Symphony password')
+@click.option('-s', '--sensors', 'sensors', required=False,
+              help='Comma separated list of sensors.  Can be "all"')
+@click.option('-c', '--continuous', 'continuous', required=False,
+              is_flag=True, help='Read sensors every 15 seconds continously')
+@click.option('-d', '--debug', 'debug', required=False, is_flag=True)
+def main(user, passwd, sensors, continuous, debug):
 
     click.echo("\nStep 1: Login")
+    if debug:
+        logger.setLevel(logging.DEBUG)
 
     wf = waterfurnace.waterfurnace.WaterFurnace(user, passwd)
     wf.login()
 
     click.echo("Login Succeeded: session_id = {}".format(wf.sessionid))
 
-    click.echo("Attempting to read data")
-    data = wf.read()
-    click.echo(data)
+    while True:
+
+        dt = datetime.datetime.now()
+        now = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        click.echo("")
+        click.echo("Attempting to read data {}".format(now))
+        data = wf.read()
+
+        if sensors is None:
+            click.echo(data)
+        else:
+            if sensors == 'all':
+                attrs = dir(data)
+                sensorlist = []
+                for attr in attrs:
+                    if not attr.startswith('_'):
+                        sensorlist.append(attr)
+            else:
+                sensorlist = list(sensors.split(","))
+
+            for sensor in sensorlist:
+                click.echo("{} = {}".format(sensor, getattr(data, sensor)))
+
+            if continuous:
+                time.sleep(15)
+            else:
+                break
 
 
 if __name__ == "__main__":

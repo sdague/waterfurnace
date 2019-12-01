@@ -31,7 +31,7 @@ test_requirements = [
 
 setup(
     name='waterfurnace',
-    version='1.1.0',
+    version='1.2.0',
     description="Python interface for waterfurnace geothermal systems",
     entry_points={
         'console_scripts': [
