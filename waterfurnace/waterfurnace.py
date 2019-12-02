@@ -39,7 +39,7 @@ DATA_REQUEST = {
     "cmd": "read",
     "tid": None,
     "awlid": None,
-    "zone": 1,
+    "zone": 0,
     "rlist": [  # the list of sensors to return readings for
         "compressorpower",
         "fanpower",
