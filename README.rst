@@ -41,6 +41,8 @@ do a data reading at least every 30 seconds otherwise the websocket is closed
 on the server side for resource constraints. The symphony website does a poll
 on the websocket every 5 seconds.
 
+The software now supports a CLI.  For details, use waterfurnace --help
+
 Known Issues / limitations
 ==========================
 
