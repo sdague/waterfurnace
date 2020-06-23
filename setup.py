@@ -35,7 +35,7 @@ setup(
     description="Python interface for waterfurnace geothermal systems",
     entry_points={
         'console_scripts': [
-            'waterfurnace-debug=waterfurnace.cli:main'
+            'waterfurnace=waterfurnace.cli:main'
         ]
     },
     long_description=readme + '\n\n' + history,
@@ -43,12 +43,6 @@ setup(
     author_email='sean@dague.net',
     url='https://github.com/sdague/waterfurnace',
     packages=find_packages(include=['waterfurnace']),
-    # TODO(sdague): bring back when we add a cli
-    # entry_points={
-    #     'console_scripts': [
-    #         'waterfurnace=waterfurnace.cli:main'
-    #     ]
-    # },
     include_package_data=True,
     install_requires=requirements,
     license="Apache Software License 2.0",
