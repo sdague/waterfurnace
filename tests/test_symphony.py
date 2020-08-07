@@ -152,6 +152,8 @@ class TestReadData(unittest.TestCase):
              "tstatroomtemp": 69.7,
              "enteringwatertemp": 41.4,
              "aocenteringwatertemp": 0,
+             "leavingwatertemp": 36.7,
+             "waterflowrate": 12.2,
              "lockoutstatus": {"lockoutstatuscode": 0,
                                "lockedout": 0},
              "lastfault": 15,
@@ -197,6 +199,8 @@ class TestReadData(unittest.TestCase):
         assert data.tstathumidsetpoint == 40
         assert data.tstatrelativehumidity == 45
         assert data.enteringwatertemp == 41.4
+        assert data.leavingwatertemp == 36.7
+        assert data.waterflowrate == 12.2
         assert data.leavingairtemp == 67.7
         assert data.tstatactivesetpoint == 69
 

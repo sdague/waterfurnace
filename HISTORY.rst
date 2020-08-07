@@ -1,6 +1,14 @@
 =======
 History
 =======
+1.2.0 (2019-11-30)
+------------------
+* Add LeavingWaterTemp and WaterFlowRate sensors (Series 7 WF)
+* Added features to CLI (for details see --help)
+ - Added debug flag 
+ - Added option sensor list specification 
+ - Added continous reporting 
+ - Added ability to specify furnace in a multi unit system
 
 1.1.0 (2019-01-07)
 ------------------
