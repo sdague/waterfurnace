@@ -16,6 +16,9 @@ USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Ubuntu Chromium/70.0.3538.77 "
               "Chrome/70.0.3538.77 Safari/537.36")
 WF_LOGIN_URL = 'https://symphony.mywaterfurnace.com/account/login'
+WF_WS_URL ="wss://awlclientproxy.mywaterfurnace.com/"
+GS_LOGIN_URL = 'https://symphony.mygeostar.com/account/login'
+GS_WS_URL ="wss://awlclientproxy.mygeostar.com/"
 
 FURNACE_MODE = (
     'Standby',
@@ -95,9 +98,11 @@ class WFError(WFException):
     pass
 
 
-class WaterFurnace(object):
+class SymphonyGeothermal(object):
 
-    def __init__(self, user, passwd, max_fails=5):
+    def __init__(self, login_url, ws_url, user, passwd, max_fails=5):
+        self.login_url = login_url
+        self.ws_url = ws_url
         self.user = user
         self.passwd = passwd
         self.gwid = None
@@ -117,7 +122,7 @@ class WaterFurnace(object):
             "user-agent": USER_AGENT,
         }
 
-        res = requests.post(WF_LOGIN_URL, data=data, headers=headers,
+        res = requests.post(self.login_url, data=data, headers=headers,
                             cookies={"legal-acknowledge": "yes",
                                      "energy-base-price": "0.15"},
                             timeout=TIMEOUT, allow_redirects=False)
@@ -137,8 +142,7 @@ class WaterFurnace(object):
                 raise WFError()
 
     def _login_ws(self):
-        self.ws = websocket.create_connection(
-            "wss://awlclientproxy.mywaterfurnace.com/", timeout=TIMEOUT)
+        self.ws = websocket.create_connection(self.ws_url, timeout=TIMEOUT)
         login = {"cmd": "login", "tid": self.tid,
                  "source": "consumer dashboard",
                  "sessionid": self.sessionid}
@@ -218,6 +222,16 @@ class WaterFurnace(object):
                 time.sleep(self.fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError(
             "Failed to refresh credentials after retries")
+
+
+class WaterFurnace(SymphonyGeothermal):
+    def __init__(self, user, passwd, max_fails=5):
+        super().__init__(WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails)
+
+
+class GeoStar(SymphonyGeothermal):
+    def __init__(self, user, passwd, max_fails=5):
+        super().__init__(GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails)
 
 
 class WFReading(object):
