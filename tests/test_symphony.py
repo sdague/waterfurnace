@@ -3,7 +3,7 @@
 """Tests for `waterfurnace` package."""
 
 import json
-import mock
+from unittest import mock
 import unittest
 
 import pytest
