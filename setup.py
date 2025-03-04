@@ -19,13 +19,11 @@ requirements = [
 ]
 
 setup_requirements = [
-    'pytest-runner',
     # TODO(sdague): put setup requirements (distutils extensions, etc.) here
 ]
 
 test_requirements = [
     'pytest',
-    'mock'
     # TODO: put package test requirements here
 ]
 
@@ -64,7 +62,8 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
-    test_suite='tests',
-    tests_require=test_requirements,
     setup_requires=setup_requirements,
+    extras_require={
+        "test": test_requirements,
+    },
 )
