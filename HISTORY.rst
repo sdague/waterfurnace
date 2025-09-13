@@ -1,8 +1,10 @@
 =======
 History
 =======
-1.2.0 (2019-11-30)
+1.2.0 (2025-09-13)
 ------------------
+* Add SSL legacy compatibility to connect with modern SSL. Addresses
+  UNSAFE_LEGACY_RENEGOTIATION_DISABLED error.
 * Add LeavingWaterTemp and WaterFlowRate sensors (Series 7 WF)
 * Added features to CLI (for details see --help)
  - Added debug flag 
