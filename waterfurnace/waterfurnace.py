@@ -7,6 +7,7 @@ import json
 import threading
 import time
 
+import ssl
 import requests
 import websocket
 
@@ -163,7 +164,14 @@ class SymphonyGeothermal(object):
                 raise WFError()
 
     def _login_ws(self):
-        self.ws = websocket.create_connection(self.ws_url, timeout=TIMEOUT)
+        # The following is needed to allow legacy negotiation because
+        # WF is kind of slow in updating infrastructure
+        sslopt = {}
+        ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
+        sslopt.update({'context': ctx})
+        
+        self.ws = websocket.create_connection(self.ws_url, timeout=TIMEOUT, sslopt=sslopt)
         login = {
             "cmd": "login",
             "tid": self.tid,
