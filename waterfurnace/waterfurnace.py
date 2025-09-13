@@ -12,9 +12,7 @@ import websocket
 
 _LOGGER = logging.getLogger(__name__)
 
-USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Ubuntu Chromium/70.0.3538.77 "
-              "Chrome/70.0.3538.77 Safari/537.36")
+USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0")
 WF_LOGIN_URL = 'https://symphony.mywaterfurnace.com/account/login'
 WF_WS_URL ="wss://awlclientproxy.mywaterfurnace.com/"
 GS_LOGIN_URL = 'https://symphony.mygeostar.com/account/login'
@@ -114,7 +112,11 @@ class SymphonyGeothermal(object):
         # For retry logic
         self.max_fails = max_fails
         self.fails = 0
+        _LOGGER.debug(self)
 
+    def __repr__(self):
+        return f"<Symphony user={self.user} passwd={self.passwd}>"
+        
     def next_tid(self):
         self.tid = (self.tid + 1) % 100
 
@@ -127,7 +129,8 @@ class SymphonyGeothermal(object):
 
         res = requests.post(self.login_url, data=data, headers=headers,
                             cookies={"legal-acknowledge": "yes",
-                                     "energy-base-price": "0.15"},
+                                     "energy-base-price": "0.15",
+                                     "temp_unit": "f"},
                             timeout=TIMEOUT, allow_redirects=False)
         try:
             self.sessionid = res.cookies["sessionid"]
@@ -228,13 +231,13 @@ class SymphonyGeothermal(object):
 
 
 class WaterFurnace(SymphonyGeothermal):
-    def __init__(self, user, passwd, max_fails=5):
-        super().__init__(WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails)
+    def __init__(self, user, passwd, max_fails=5, device=0):
+        super().__init__(WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails, device)
 
 
 class GeoStar(SymphonyGeothermal):
-    def __init__(self, user, passwd, max_fails=5):
-        super().__init__(GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails)
+    def __init__(self, user, passwd, max_fails=5, device=0):
+        super().__init__(GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails, device)
 
 
 class WFReading(object):
