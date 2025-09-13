@@ -12,26 +12,28 @@ import websocket
 
 _LOGGER = logging.getLogger(__name__)
 
-USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0")
-WF_LOGIN_URL = 'https://symphony.mywaterfurnace.com/account/login'
-WF_WS_URL ="wss://awlclientproxy.mywaterfurnace.com/"
-GS_LOGIN_URL = 'https://symphony.mygeostar.com/account/login'
-GS_WS_URL ="wss://awlclientproxy.mygeostar.com/"
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0"
+WF_LOGIN_URL = "https://symphony.mywaterfurnace.com/account/login"
+WF_WS_URL = "wss://awlclientproxy.mywaterfurnace.com/"
+GS_LOGIN_URL = "https://symphony.mygeostar.com/account/login"
+GS_WS_URL = "wss://awlclientproxy.mygeostar.com/"
 
 FURNACE_MODE = (
-    'Standby',
-    'Fan Only',
-    'Cooling 1',
-    'Cooling 2',
-    'Reheat',
-    'Heating 1',
-    'Heating 2',
-    'E-Heat',
-    'Aux Heat',
-    'Lockout')
+    "Standby",
+    "Fan Only",
+    "Cooling 1",
+    "Cooling 2",
+    "Reheat",
+    "Heating 1",
+    "Heating 2",
+    "E-Heat",
+    "Aux Heat",
+    "Lockout",
+)
 
-FAILED_LOGIN = ("Your login failed. Please check your email address "
-                "/ password and try again.")
+FAILED_LOGIN = (
+    "Your login failed. Please check your email address " "/ password and try again."
+)
 
 TIMEOUT = 30
 ERROR_INTERVAL = 300
@@ -78,8 +80,10 @@ DATA_REQUEST = {
         "TStatMode",
         "TStatHeatingSetpoint",
         "TStatCoolingSetpoint",
-        "AWLTStatType"],
-    "source": "consumer dashboard"}
+        "AWLTStatType",
+    ],
+    "source": "consumer dashboard",
+}
 
 
 class WFException(Exception):
@@ -116,42 +120,56 @@ class SymphonyGeothermal(object):
 
     def __repr__(self):
         return f"<Symphony user={self.user} passwd={self.passwd}>"
-        
+
     def next_tid(self):
         self.tid = (self.tid + 1) % 100
 
     def _get_session_id(self):
-        data = dict(emailaddress=self.user, password=self.passwd, op="login",
-                    redirect="/")
+        data = dict(
+            emailaddress=self.user, password=self.passwd, op="login", redirect="/"
+        )
         headers = {
             "user-agent": USER_AGENT,
         }
 
-        res = requests.post(self.login_url, data=data, headers=headers,
-                            cookies={"legal-acknowledge": "yes",
-                                     "energy-base-price": "0.15",
-                                     "temp_unit": "f"},
-                            timeout=TIMEOUT, allow_redirects=False)
+        res = requests.post(
+            self.login_url,
+            data=data,
+            headers=headers,
+            cookies={
+                "legal-acknowledge": "yes",
+                "energy-base-price": "0.15",
+                "temp_unit": "f",
+            },
+            timeout=TIMEOUT,
+            allow_redirects=False,
+        )
         try:
             self.sessionid = res.cookies["sessionid"]
         except KeyError:
-            _LOGGER.error("Did not find expected session cookie, login failed."
-                          " A lot of debug info coming...")
+            _LOGGER.error(
+                "Did not find expected session cookie, login failed."
+                " A lot of debug info coming..."
+            )
             _LOGGER.debug("Response: {}".format(res))
             _LOGGER.debug("Response Cookies: {}".format(res.cookies))
             _LOGGER.debug("Response Content: {}".format(res.content))
             if FAILED_LOGIN in res.content:
-                _LOGGER.error("Failed to log in, "
-                              "are you sure your user / password are correct")
+                _LOGGER.error(
+                    "Failed to log in, " "are you sure your user / password are correct"
+                )
                 raise WFCredentialError()
             else:
                 raise WFError()
 
     def _login_ws(self):
         self.ws = websocket.create_connection(self.ws_url, timeout=TIMEOUT)
-        login = {"cmd": "login", "tid": self.tid,
-                 "source": "consumer dashboard",
-                 "sessionid": self.sessionid}
+        login = {
+            "cmd": "login",
+            "tid": self.tid,
+            "source": "consumer dashboard",
+            "sessionid": self.sessionid,
+        }
         self.ws.send(json.dumps(login))
         # TODO(sdague): we should probably check the response, but
         # it's not clear anything is useful in it.
@@ -195,10 +213,10 @@ class SymphonyGeothermal(object):
             self.next_tid()
             datadecoded = json.loads(data)
             _LOGGER.debug("Resp: %s" % datadecoded)
-            if not datadecoded['err']:
+            if not datadecoded["err"]:
                 return WFReading(datadecoded)
             else:
-                raise WFError(datadecoded['err'])
+                raise WFError(datadecoded["err"])
         except websocket.WebSocketConnectionClosedException:
             _LOGGER.exception("Websocket closed, probably from a timeout")
             raise WFWebsocketClosedError()
@@ -226,8 +244,7 @@ class SymphonyGeothermal(object):
                 self.fails = self.fails + 1
                 _LOGGER.exception("websocket read failed, reconnecting")
                 time.sleep(self.fails * ERROR_INTERVAL)
-        raise WFWebsocketClosedError(
-            "Failed to refresh credentials after retries")
+        raise WFWebsocketClosedError("Failed to refresh credentials after retries")
 
 
 class WaterFurnace(SymphonyGeothermal):
@@ -243,56 +260,60 @@ class GeoStar(SymphonyGeothermal):
 class WFReading(object):
 
     def __init__(self, data={}):
-        self.zone = data.get('zone', 0)
-        self.err = data.get('err', '')
-        self.awlid = data.get('awlid', '')
-        self.tid = data.get('tid', 0)
+        self.zone = data.get("zone", 0)
+        self.err = data.get("err", "")
+        self.awlid = data.get("awlid", "")
+        self.tid = data.get("tid", 0)
 
         # power (Watts)
-        self.compressorpower = data.get('compressorpower')
-        self.fanpower = data.get('fanpower')
-        self.auxpower = data.get('auxpower')
-        self.looppumppower = data.get('looppumppower')
-        self.totalunitpower = data.get('totalunitpower')
+        self.compressorpower = data.get("compressorpower")
+        self.fanpower = data.get("fanpower")
+        self.auxpower = data.get("auxpower")
+        self.looppumppower = data.get("looppumppower")
+        self.totalunitpower = data.get("totalunitpower")
 
         # modes (0 - 10)
-        self.modeofoperation = data.get('modeofoperation')
+        self.modeofoperation = data.get("modeofoperation")
 
         # fan speed (0 - 10)
-        self.airflowcurrentspeed = data.get('airflowcurrentspeed')
+        self.airflowcurrentspeed = data.get("airflowcurrentspeed")
 
         # compressor speed
-        self.actualcompressorspeed = data.get('actualcompressorspeed')
+        self.actualcompressorspeed = data.get("actualcompressorspeed")
 
         # humidity (%)
-        self.tstatdehumidsetpoint = data.get('tstatdehumidsetpoint')
-        self.tstathumidsetpoint = data.get('tstathumidsetpoint')
-        self.tstatrelativehumidity = data.get('tstatrelativehumidity')
+        self.tstatdehumidsetpoint = data.get("tstatdehumidsetpoint")
+        self.tstathumidsetpoint = data.get("tstathumidsetpoint")
+        self.tstatrelativehumidity = data.get("tstatrelativehumidity")
 
         # temps (degrees F)
-        self.leavingairtemp = data.get('leavingairtemp')
-        self.tstatroomtemp = data.get('tstatroomtemp')
-        self.enteringwatertemp = data.get('enteringwatertemp')
-        self.leavingwatertemp = data.get('leavingwatertemp')
+        self.leavingairtemp = data.get("leavingairtemp")
+        self.tstatroomtemp = data.get("tstatroomtemp")
+        self.enteringwatertemp = data.get("enteringwatertemp")
+        self.leavingwatertemp = data.get("leavingwatertemp")
 
         # setpoints (degrees F)
-        self.tstatheatingsetpoint = data.get('tstatheatingsetpoint')
-        self.tstatcoolingsetpoint = data.get('tstatcoolingsetpoint')
-        self.tstatactivesetpoint = data.get('tstatactivesetpoint')
+        self.tstatheatingsetpoint = data.get("tstatheatingsetpoint")
+        self.tstatcoolingsetpoint = data.get("tstatcoolingsetpoint")
+        self.tstatactivesetpoint = data.get("tstatactivesetpoint")
 
         # Loop water flow rate (gallons per minute)
-        self.waterflowrate = data.get('waterflowrate')
+        self.waterflowrate = data.get("waterflowrate")
 
     @property
     def mode(self):
         return FURNACE_MODE[self.modeofoperation]
 
     def __repr__(self):
-        return ("<FurnaceReading power=%d, mode=%s, looptemp=%.1f, "
-                "airtemp=%.1f, roomtemp=%.1f, setpoint=%d>" % (
-                    self.totalunitpower,
-                    self.mode,
-                    self.enteringwatertemp,
-                    self.leavingairtemp,
-                    self.tstatroomtemp,
-                    self.tstatactivesetpoint))
+        return (
+            "<FurnaceReading power=%d, mode=%s, looptemp=%.1f, "
+            "airtemp=%.1f, roomtemp=%.1f, setpoint=%d>"
+            % (
+                self.totalunitpower,
+                self.mode,
+                self.enteringwatertemp,
+                self.leavingairtemp,
+                self.tstatroomtemp,
+                self.tstatactivesetpoint,
+            )
+        )

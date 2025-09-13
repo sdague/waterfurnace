@@ -15,18 +15,33 @@ logger.setLevel(logging.INFO)
 
 
 @click.command()
-@click.option('-u', '--username', 'user', required=True,
-              help='Symphony username')
-@click.option('-p', '--password', 'passwd', required=True,
-              help='Symphony password')
-@click.option('-s', '--sensors', 'sensors', required=False,
-              help='Comma separated list of sensors.  Can be "all"')
-@click.option('-c', '--continuous', 'continuous', required=False,
-              is_flag=True, help='Read sensors every 15 seconds continously')
-@click.option('-D', '--device', 'device', required=False, default=0,
-              show_default=True,
-              help='Select device in multi-device system (0,1,2...]')
-@click.option('-d', '--debug', 'debug', required=False, is_flag=True)
+@click.option("-u", "--username", "user", required=True, help="Symphony username")
+@click.option("-p", "--password", "passwd", required=True, help="Symphony password")
+@click.option(
+    "-s",
+    "--sensors",
+    "sensors",
+    required=False,
+    help='Comma separated list of sensors.  Can be "all"',
+)
+@click.option(
+    "-c",
+    "--continuous",
+    "continuous",
+    required=False,
+    is_flag=True,
+    help="Read sensors every 15 seconds continously",
+)
+@click.option(
+    "-D",
+    "--device",
+    "device",
+    required=False,
+    default=0,
+    show_default=True,
+    help="Select device in multi-device system (0,1,2...]",
+)
+@click.option("-d", "--debug", "debug", required=False, is_flag=True)
 def main(user, passwd, sensors, continuous, device, debug):
 
     click.echo("\nStep 1: Login")
@@ -50,11 +65,11 @@ def main(user, passwd, sensors, continuous, device, debug):
         if sensors is None:
             click.echo(data)
         else:
-            if sensors == 'all':
+            if sensors == "all":
                 attrs = dir(data)
                 sensorlist = []
                 for attr in attrs:
-                    if not attr.startswith('_'):
+                    if not attr.startswith("_"):
                         sensorlist.append(attr)
             else:
                 sensorlist = list(sensors.split(","))
