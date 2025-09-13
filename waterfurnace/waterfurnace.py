@@ -64,6 +64,8 @@ DATA_REQUEST = {
         "TStatRoomTemp",
         "EnteringWaterTemp",
         "AOCEnteringWaterTemp",
+        "LeavingWaterTemp",
+        "WaterFlowRate",
         "lockoutstatus",
         "lastfault",
         "lastlockout",
@@ -100,11 +102,12 @@ class WFError(WFException):
 
 class SymphonyGeothermal(object):
 
-    def __init__(self, login_url, ws_url, user, passwd, max_fails=5):
+    def __init__(self, login_url, ws_url, user, passwd, max_fails=5, device=0):
         self.login_url = login_url
         self.ws_url = ws_url
         self.user = user
         self.passwd = passwd
+        self.device = device
         self.gwid = None
         self.sessionid = None
         self.tid = 0
@@ -152,7 +155,7 @@ class SymphonyGeothermal(object):
         recv = self.ws.recv()
         data = json.loads(recv)
         _LOGGER.debug("Login response: %s" % data)
-        self.gwid = data["locations"][0]["gateways"][0]["gwid"]
+        self.gwid = data["locations"][0]["gateways"][self.device]["gwid"]
         self.next_tid()
 
     def login(self):
@@ -267,11 +270,15 @@ class WFReading(object):
         self.leavingairtemp = data.get('leavingairtemp')
         self.tstatroomtemp = data.get('tstatroomtemp')
         self.enteringwatertemp = data.get('enteringwatertemp')
+        self.leavingwatertemp = data.get('leavingwatertemp')
 
         # setpoints (degrees F)
         self.tstatheatingsetpoint = data.get('tstatheatingsetpoint')
         self.tstatcoolingsetpoint = data.get('tstatcoolingsetpoint')
         self.tstatactivesetpoint = data.get('tstatactivesetpoint')
+
+        # Loop water flow rate (gallons per minute)
+        self.waterflowrate = data.get('waterflowrate')
 
     @property
     def mode(self):
