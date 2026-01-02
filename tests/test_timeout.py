@@ -3,7 +3,7 @@
 """Tests for `waterfurnace` package."""
 import logging
 import json
-import mock
+from unittest import mock
 import unittest
 import time
 
@@ -15,15 +15,7 @@ from waterfurnace import waterfurnace as wf
 _LOGGER = logging.getLogger(__name__)
 
 
-FAKE_RESPONSE = {
-    "err": "",
-    "locations": [
-        {"gateways": [
-            {"gwid": "123456"}
-        ]
-        }
-    ]
-}
+FAKE_RESPONSE = {"err": "", "locations": [{"gateways": [{"gwid": "123456"}]}]}
 
 
 FAKE_CONTENT = json.dumps(FAKE_RESPONSE)
@@ -62,8 +54,8 @@ class FakeRequest(object):
 
 class TestTimeout(unittest.TestCase):
 
-    @mock.patch('websocket.create_connection')
-    @mock.patch('requests.post')
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
     def test_increment_read_data(self, mock_req, mock_ws_create):
         mock_req.return_value = FakeRequest(
             cookies={"sessionid": str(mock.sentinel.sessionid)}
@@ -73,7 +65,8 @@ class TestTimeout(unittest.TestCase):
         mock_ws_create.return_value = m_ws
 
         w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit))
+            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit)
+        )
         w.login()
 
         with pytest.raises(wf.WFWebsocketClosedError):

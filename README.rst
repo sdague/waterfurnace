@@ -18,7 +18,7 @@ waterfurnace
    :alt: Updates
 
 
-Python interface for waterfurnace geothermal systems.
+Python interface for waterfurnace and geostar geothermal systems.
 
 This provides basic sensor readings for waterfurnace geothermal systems by
 using the websocket interface that exists for the symphony website. This is not
@@ -36,10 +36,19 @@ Usage
    wf.login()
    data = wf.read()
 
+.. code-block:: python
+
+   from waterfurnace.waterfurnace import GeoStar
+   gs = GeoStar(user, pass)
+   gs.login()
+   data = gs.read()
+
 The waterfurnace symphony service websocket monitors it's usage, so you need to
 do a data reading at least every 30 seconds otherwise the websocket is closed
 on the server side for resource constraints. The symphony website does a poll
 on the websocket every 5 seconds.
+
+The software now supports a CLI.  For details, use waterfurnace --help
 
 Known Issues / limitations
 ==========================
