@@ -6,6 +6,7 @@ import logging
 import json
 import threading
 import time
+from datetime import datetime, timezone
 
 import ssl
 import requests
@@ -14,9 +15,11 @@ import websocket
 _LOGGER = logging.getLogger(__name__)
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0"
-WF_LOGIN_URL = "https://symphony.mywaterfurnace.com/account/login"
+WF_BASE_URL = "https://symphony.mywaterfurnace.com"
+WF_LOGIN_URL = f"{WF_BASE_URL}/account/login"
 WF_WS_URL = "wss://awlclientproxy.mywaterfurnace.com/"
-GS_LOGIN_URL = "https://symphony.mygeostar.com/account/login"
+GS_BASE_URL = "https://symphony.mygeostar.com"
+GS_LOGIN_URL = f"{GS_BASE_URL}/account/login"
 GS_WS_URL = "wss://awlclientproxy.mygeostar.com/"
 
 FURNACE_MODE = (
@@ -105,7 +108,8 @@ class WFError(WFException):
 
 class SymphonyGeothermal(object):
 
-    def __init__(self, login_url, ws_url, user, passwd, max_fails=5, device=0):
+    def __init__(self, base_url, login_url, ws_url, user, passwd, max_fails=5, device=0):
+        self.base_url = base_url
         self.login_url = login_url
         self.ws_url = ws_url
         self.user = user
@@ -256,15 +260,77 @@ class SymphonyGeothermal(object):
                 time.sleep(self.fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError("Failed to refresh credentials after retries")
 
+    def get_energy_data(self, start_date, end_date, frequency="1H", timezone_str="America/New_York"):
+        """Get energy data for a date range.
+
+        Args:
+            start_date: Start date as string in YYYY-MM-DD format
+            end_date: End date as string in YYYY-MM-DD format
+            frequency: Data frequency - "1D" (daily), "1H" (hourly), or "15min" (15 minutes)
+            timezone_str: Timezone string (e.g., "America/New_York")
+
+        Returns:
+            WFEnergyData object containing energy readings
+
+        Raises:
+            WFCredentialError: If not logged in or session invalid
+            WFError: If API request fails
+        """
+        if not self.sessionid or not self.gwid:
+            raise WFCredentialError("Must login before getting energy data")
+
+        # Validate frequency
+        valid_frequencies = ["1D", "1H", "15min"]
+        if frequency not in valid_frequencies:
+            raise ValueError(f"Invalid frequency. Must be one of {valid_frequencies}")
+
+        # Build the API URL
+        url = (
+            f"{self.base_url}/api.php/v2/gateway/{self.gwid}/energy"
+            f"?freq={frequency}&start={start_date}&timezone={timezone_str}&end={end_date}"
+        )
+
+        headers = {
+            "user-agent": USER_AGENT,
+        }
+
+        cookies = {
+            "sessionid": self.sessionid,
+            "legal-acknowledge": "yes",
+        }
+
+        _LOGGER.debug(f"Requesting energy data from: {url}")
+
+        try:
+            res = requests.get(
+                url,
+                headers=headers,
+                cookies=cookies,
+                timeout=TIMEOUT,
+            )
+            res.raise_for_status()
+            data = res.json()
+            _LOGGER.debug(f"Received energy data: {len(data.get('index', []))} records")
+            return WFEnergyData(data)
+        except requests.exceptions.HTTPError as e:
+            _LOGGER.error(f"HTTP error getting energy data: {e}")
+            raise WFError(f"Failed to get energy data: {e}")
+        except requests.exceptions.RequestException as e:
+            _LOGGER.error(f"Request error getting energy data: {e}")
+            raise WFError(f"Failed to get energy data: {e}")
+        except (ValueError, KeyError) as e:
+            _LOGGER.error(f"Error parsing energy data response: {e}")
+            raise WFError(f"Invalid energy data response: {e}")
+
 
 class WaterFurnace(SymphonyGeothermal):
     def __init__(self, user, passwd, max_fails=5, device=0):
-        super().__init__(WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails, device)
+        super().__init__(WF_BASE_URL, WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails, device)
 
 
 class GeoStar(SymphonyGeothermal):
     def __init__(self, user, passwd, max_fails=5, device=0):
-        super().__init__(GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails, device)
+        super().__init__(GS_BASE_URL, GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails, device)
 
 
 class WFReading(object):
@@ -326,4 +392,112 @@ class WFReading(object):
                 self.tstatroomtemp,
                 self.tstatactivesetpoint,
             )
+        )
+
+
+class WFEnergyReading(object):
+    """Represents a single energy data reading for a specific time period."""
+
+    def __init__(self, timestamp_ms, values, columns):
+        """Initialize energy reading.
+
+        Args:
+            timestamp_ms: Unix timestamp in milliseconds
+            values: List of values corresponding to columns
+            columns: List of column names
+        """
+        self.timestamp_ms = timestamp_ms
+        # Convert milliseconds to seconds for datetime
+        self.timestamp = datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
+
+        # Create a mapping for easy access
+        data_dict = {}
+        for i, col in enumerate(columns):
+            if i < len(values):
+                data_dict[col] = values[i]
+
+        # Common fields for all frequencies
+        self.total_heat_1 = data_dict.get("total_heat_1")
+        self.total_heat_2 = data_dict.get("total_heat_2")
+        self.total_cool_1 = data_dict.get("total_cool_1")
+        self.total_cool_2 = data_dict.get("total_cool_2")
+        self.total_electric_heat = data_dict.get("total_electric_heat")
+        self.total_fan_only = data_dict.get("total_fan_only")
+        self.total_loop_pump = data_dict.get("total_loop_pump")
+        self.total_dehumidification = data_dict.get("total_dehumidification")
+        self.total_power = data_dict.get("total_power")
+        self.total_records = data_dict.get("total_records")
+
+        # Runtime fields (hour/15min frequency)
+        self.runtime_heat_1 = data_dict.get("runtime_heat_1")
+        self.runtime_heat_2 = data_dict.get("runtime_heat_2")
+        self.runtime_cool_1 = data_dict.get("runtime_cool_1")
+        self.runtime_cool_2 = data_dict.get("runtime_cool_2")
+        self.runtime_electric_heat = data_dict.get("runtime_electric_heat")
+        self.runtime_fan_only = data_dict.get("runtime_fan_only")
+        self.runtime_dehumidification = data_dict.get("runtime_dehumidification")
+        self.cool_runtime = data_dict.get("cool_runtime")
+        self.heat_runtime = data_dict.get("heat_runtime")
+
+        # Daily frequency specific fields
+        self.id = data_dict.get("id")
+        self.defrost_runtime = data_dict.get("defrost_runtime")
+        self.dehumidification_runtime = data_dict.get("dehumidification_runtime")
+        self.time_zone = data_dict.get("time_zone")
+
+        # Store all raw data for any custom access
+        self._raw_data = data_dict
+
+    def get(self, key, default=None):
+        """Get any field by column name.
+
+        Args:
+            key: Column name
+            default: Default value if key not found
+
+        Returns:
+            Value for the given column or default
+        """
+        return self._raw_data.get(key, default)
+
+    def __repr__(self):
+        return f"<WFEnergyReading timestamp={self.timestamp}, power={self.total_power}>"
+
+
+class WFEnergyData(object):
+    """Container for energy data with multiple readings."""
+
+    def __init__(self, data={}):
+        """Initialize energy data from API response.
+
+        Args:
+            data: Dictionary containing columns, index, and data arrays
+        """
+        self.columns = data.get("columns", [])
+        self.index = data.get("index", [])
+        self.data = data.get("data", [])
+
+        # Create reading objects for easier access
+        self.readings = []
+        for i, timestamp in enumerate(self.index):
+            if i < len(self.data):
+                reading = WFEnergyReading(timestamp, self.data[i], self.columns)
+                self.readings.append(reading)
+
+    def __iter__(self):
+        """Allow iteration over readings."""
+        return iter(self.readings)
+
+    def __len__(self):
+        """Return number of readings."""
+        return len(self.readings)
+
+    def __getitem__(self, index):
+        """Allow indexed access to readings."""
+        return self.readings[index]
+
+    def __repr__(self):
+        return (
+            f"<WFEnergyData records={len(self.readings)}, "
+            f"columns={len(self.columns)}>"
         )
