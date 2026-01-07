@@ -30,9 +30,7 @@ jobs:
         pip install .
     - name: Lint with flake8
       run: |
-        pip install .
         tox -e flake8
     - name: Test with pytest
       run: |
-        pip install .
         tox -e py314
