@@ -1,4 +1,4 @@
-bumpversion==0.5.3
+bump-my-version==1.2.6
 wheel
 watchdog>=0.8.3
 flake8==2.6.0
