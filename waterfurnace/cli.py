@@ -16,7 +16,16 @@ logger.setLevel(logging.INFO)
 
 @click.command()
 @click.option("-u", "--username", "user", required=True, help="Symphony username")
-@click.option("-p", "--password", "passwd", required=True, help="Symphony password")
+@click.option(
+    "-p",
+    "--password",
+    "passwd",
+    envvar="WF_PASSWORD",
+    prompt=True,
+    hide_input=True,
+    confirmation_prompt=False,
+    help="Symphony password (or set WF_PASSWORD env var)",
+)
 @click.option(
     "-s",
     "--sensors",
