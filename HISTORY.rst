@@ -1,6 +1,10 @@
 History
 =======
 
+1.3.1 (2026-01-07)
+------------------
+* Automate pypi build process
+
 1.3.0 (2026-01-07)
 ------------------
 * CLI enhanced to allow prompt for password (thanks @masterkoppa)
