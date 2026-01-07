@@ -20,8 +20,8 @@ setup_hooks = []
 pre_commit_hooks = []
 post_commit_hooks = []
 
-[[tool.bumpversion.setup]]
+[[tool.bumpversion.files]]
 filename = "setup.py"
 
-[[tool.bumpversion.init]]
+[[tool.bumpversion.files]]
 filename = "waterfurnace/__init__.py"
