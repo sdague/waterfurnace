@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
 """Main module."""
+
 import copy
-import logging
 import json
+import logging
+import ssl
 import threading
 import time
 
-import ssl
 import requests
 import websocket
 
@@ -33,7 +34,7 @@ FURNACE_MODE = (
 )
 
 FAILED_LOGIN = (
-    "Your login failed. Please check your email address " "/ password and try again."
+    "Your login failed. Please check your email address / password and try again."
 )
 
 TIMEOUT = 30
@@ -104,12 +105,14 @@ class WFError(WFException):
 
 
 class SymphonyGeothermal(object):
-
-    def __init__(self, login_url, ws_url, user, passwd, max_fails=5, device=0):
+    def __init__(
+        self, login_url, ws_url, user, passwd, max_fails=5, device=0, location=0
+    ):
         self.login_url = login_url
         self.ws_url = ws_url
         self.user = user
         self.passwd = passwd
+        self.location = location
         self.device = device
         self.gwid = None
         self.sessionid = None
@@ -157,7 +160,7 @@ class SymphonyGeothermal(object):
             _LOGGER.debug("Response Content: {}".format(res.content))
             if FAILED_LOGIN in res.content:
                 _LOGGER.error(
-                    "Failed to log in, " "are you sure your user / password are correct"
+                    "Failed to log in, are you sure your user / password are correct"
                 )
                 raise WFCredentialError()
             else:
@@ -186,7 +189,65 @@ class SymphonyGeothermal(object):
         recv = self.ws.recv()
         data = json.loads(recv)
         _LOGGER.debug("Login response: %s" % data)
-        self.gwid = data["locations"][0]["gateways"][self.device]["gwid"]
+
+        locations = data["locations"]
+        location = None
+
+        if isinstance(self.location, int):
+            try:
+                location = locations[self.location]
+            except Exception:
+                raise WFError(
+                    "Location index out of range. Max index is {}".format(
+                        len(locations) - 1
+                    )
+                )
+        elif isinstance(self.location, str):
+            for index, location_data in enumerate(locations):
+                location_description = location_data.get("description")
+                if location_description == self.location:
+                    location = locations[index]
+                    break
+
+            if not location:
+                raise WFError("Unable to find location: {}".format(self.location))
+        else:
+            raise WFError(
+                "Unknown location type ({}): {}. Should be int or str".format(
+                    type(self.location), self.location
+                )
+            )
+
+        gateways = location["gateways"]
+        device = None
+
+        if isinstance(self.device, int):
+            try:
+                device = gateways[self.device]
+            except Exception:
+                raise WFError(
+                    "Device index out of range. Max index is {}".format(
+                        len(gateways) - 1
+                    )
+                )
+        elif isinstance(self.device, str):
+            for index, gateway_data in enumerate(gateways):
+                gateway_gwid = gateway_data.get("gwid")
+                gateway_description = gateway_data.get("description")
+                if gateway_gwid == self.device or gateway_description == self.device:
+                    device = gateways[index]
+                    break
+
+            if not device:
+                raise WFError("Unable to find device: {}".format(self.device))
+        else:
+            raise WFError(
+                "Unknown device type ({}): {}. Should be int or str".format(
+                    type(self.location), self.location
+                )
+            )
+
+        self.gwid = device["gwid"]
         self.next_tid()
 
     def login(self):
@@ -258,17 +319,20 @@ class SymphonyGeothermal(object):
 
 
 class WaterFurnace(SymphonyGeothermal):
-    def __init__(self, user, passwd, max_fails=5, device=0):
-        super().__init__(WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails, device)
+    def __init__(self, user, passwd, max_fails=5, device=0, location=0):
+        super().__init__(
+            WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails, device, location
+        )
 
 
 class GeoStar(SymphonyGeothermal):
-    def __init__(self, user, passwd, max_fails=5, device=0):
-        super().__init__(GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails, device)
+    def __init__(self, user, passwd, max_fails=5, device=0, location=0):
+        super().__init__(
+            GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails, device, location
+        )
 
 
 class WFReading(object):
-
     def __init__(self, data={}):
         self.zone = data.get("zone", 0)
         self.err = data.get("err", "")

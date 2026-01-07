@@ -16,7 +16,16 @@ logger.setLevel(logging.INFO)
 
 @click.command()
 @click.option("-u", "--username", "user", required=True, help="Symphony username")
-@click.option("-p", "--password", "passwd", required=True, help="Symphony password")
+@click.option(
+    "-p",
+    "--password",
+    "passwd",
+    envvar="WF_PASSWORD",
+    prompt=True,
+    hide_input=True,
+    confirmation_prompt=False,
+    help="Symphony password (or set WF_PASSWORD env var)",
+)
 @click.option(
     "-s",
     "--sensors",
@@ -41,14 +50,40 @@ logger.setLevel(logging.INFO)
     show_default=True,
     help="Select device in multi-device system (0,1,2...]",
 )
+@click.option(
+    "-l",
+    "--location",
+    "location",
+    required=False,
+    default=0,
+    show_default=True,
+    help="Select location in multi-location system (0,1,2...]",
+)
+@click.option(
+    "-v",
+    "--vendor",
+    "vendor",
+    required=False,
+    default="waterfurnace",
+    show_default=True,
+    type=click.Choice(["waterfurnace", "geostar"]),
+    help="Select vendor",
+)
 @click.option("-d", "--debug", "debug", required=False, is_flag=True)
-def main(user, passwd, sensors, continuous, device, debug):
+def main(user, passwd, sensors, continuous, device, location, vendor, debug):
 
     click.echo("\nStep 1: Login")
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    wf = waterfurnace.waterfurnace.WaterFurnace(user, passwd, device=device)
+    if vendor == "geostar":
+        wf = waterfurnace.waterfurnace.GeoStar(
+            user, passwd, device=device, location=location
+        )
+    else:
+        wf = waterfurnace.waterfurnace.WaterFurnace(
+            user, passwd, device=device, location=location
+        )
     wf.login()
 
     click.echo("Login Succeeded: session_id = {}".format(wf.sessionid))
