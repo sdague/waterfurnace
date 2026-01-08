@@ -6,16 +6,8 @@ waterfurnace
 .. image:: https://img.shields.io/pypi/v/waterfurnace.svg
    :target: https://pypi.python.org/pypi/waterfurnace
 
-.. image:: https://img.shields.io/travis/sdague/waterfurnace.svg
-   :target: https://travis-ci.org/sdague/waterfurnace
-
-.. image:: https://readthedocs.org/projects/waterfurnace/badge/?version=latest
-   :target: https://waterfurnace.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
-
-.. image:: https://pyup.io/repos/github/sdague/waterfurnace/shield.svg
-   :target: https://pyup.io/repos/github/sdague/waterfurnace/
-   :alt: Updates
+.. image:: https://github.com/sdague/waterfurnace/actions/workflows/python-app.yml/badge.svg
+   :target: https://github.com/sdague/waterfurnace/actions/workflows/python-app.yml
 
 
 Python interface for waterfurnace and geostar geothermal systems.
