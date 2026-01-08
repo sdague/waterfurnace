@@ -45,11 +45,9 @@ The software now supports a CLI.  For details, use waterfurnace --help
 Known Issues / limitations
 ==========================
 
-* The python websocket code goes into a blocked state after long periods of
-  usage (always takes days to get to this state). I've yet to discover
-  why. Help welcome.
-* If you have multiple waterfurnace units on one account, this will only use
-  the first.
+* The python websocket code goes into a blocked state after long
+  periods of usage (always takes at least days if not weeks or months
+  to get to this state). I've yet to discover why. Help welcome.
 
 
 License
