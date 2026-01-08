@@ -15,7 +15,13 @@ logger.setLevel(logging.INFO)
 
 
 @click.command()
-@click.option("-u", "--username", "user", required=True, help="Symphony username")
+@click.option(
+    "-u",
+    "--username",
+    "user",
+    required=True,
+    help="Symphony username"
+)
 @click.option(
     "-p",
     "--password",
@@ -106,7 +112,10 @@ logger.setLevel(logging.INFO)
     show_default=True,
     help="Timezone for energy data",
 )
-def main(user, passwd, sensors, continuous, device, location, vendor, debug, energy, start_date, end_date, frequency, timezone_str):
+def main(
+    user, passwd, sensors, continuous, device, location, vendor, debug,
+    energy, start_date, end_date, frequency, timezone_str
+):
 
     click.echo("\nStep 1: Login")
     if debug:
@@ -127,7 +136,9 @@ def main(user, passwd, sensors, continuous, device, location, vendor, debug, ene
     if energy:
         # Energy data mode
         if not start_date or not end_date:
-            click.echo("Error: --start and --end dates are required for energy data")
+            click.echo(
+                "Error: --start and --end dates are required for energy data"
+            )
             return
 
         click.echo("\nStep 2: Get Energy Data")
@@ -136,8 +147,12 @@ def main(user, passwd, sensors, continuous, device, location, vendor, debug, ene
         ))
 
         try:
-            energy_data = wf.get_energy_data(start_date, end_date, frequency, timezone_str)
-            click.echo("\nReceived {} energy readings".format(len(energy_data)))
+            energy_data = wf.get_energy_data(
+                start_date, end_date, frequency, timezone_str
+            )
+            click.echo(
+                "\nReceived {} energy readings".format(len(energy_data))
+            )
 
             if len(energy_data) == 0:
                 click.echo("No data available for the specified time range")
@@ -152,7 +167,12 @@ def main(user, passwd, sensors, continuous, device, location, vendor, debug, ene
                 if not filtered:
                     return None, None, None, None
                 total = sum(filtered)
-                return min(filtered), max(filtered), total / len(filtered), total
+                return (
+                    min(filtered),
+                    max(filtered),
+                    total / len(filtered),
+                    total
+                )
 
             # Collect values for each metric
             metrics = {
@@ -161,7 +181,9 @@ def main(user, passwd, sensors, continuous, device, location, vendor, debug, ene
                 "Total Heat 2": [r.total_heat_2 for r in energy_data],
                 "Total Cool 1": [r.total_cool_1 for r in energy_data],
                 "Total Cool 2": [r.total_cool_2 for r in energy_data],
-                "Total Electric Heat": [r.total_electric_heat for r in energy_data],
+                "Total Electric Heat": [
+                    r.total_electric_heat for r in energy_data
+                ],
                 "Total Fan Only": [r.total_fan_only for r in energy_data],
                 "Total Loop Pump": [r.total_loop_pump for r in energy_data],
                 "Heat Runtime": [r.heat_runtime for r in energy_data],

@@ -109,7 +109,8 @@ class WFError(WFException):
 
 class SymphonyGeothermal(object):
     def __init__(
-        self, base_url, login_url, ws_url, user, passwd, max_fails=5, device=0, location=0
+        self, base_url, login_url, ws_url, user, passwd,
+        max_fails=5, device=0, location=0
     ):
         self.base_url = base_url
         self.login_url = login_url
@@ -134,7 +135,8 @@ class SymphonyGeothermal(object):
 
     def _get_session_id(self):
         data = dict(
-            emailaddress=self.user, password=self.passwd, op="login", redirect="/"
+            emailaddress=self.user, password=self.passwd,
+            op="login", redirect="/"
         )
         headers = {
             "user-agent": USER_AGENT,
@@ -214,7 +216,9 @@ class SymphonyGeothermal(object):
                     break
 
             if not location:
-                raise WFError("Unable to find location: {}".format(self.location))
+                raise WFError(
+                    "Unable to find location: {}".format(self.location)
+                )
         else:
             raise WFError(
                 "Unknown location type ({}): {}. Should be int or str".format(
@@ -238,7 +242,10 @@ class SymphonyGeothermal(object):
             for index, gateway_data in enumerate(gateways):
                 gateway_gwid = gateway_data.get("gwid")
                 gateway_description = gateway_data.get("description")
-                if gateway_gwid == self.device or gateway_description == self.device:
+                if (
+                    gateway_gwid == self.device or
+                    gateway_description == self.device
+                ):
                     device = gateways[index]
                     break
 
@@ -319,15 +326,21 @@ class SymphonyGeothermal(object):
                 self.fails = self.fails + 1
                 _LOGGER.exception("websocket read failed, reconnecting")
                 time.sleep(self.fails * ERROR_INTERVAL)
-        raise WFWebsocketClosedError("Failed to refresh credentials after retries")
+        raise WFWebsocketClosedError(
+            "Failed to refresh credentials after retries"
+        )
 
-    def get_energy_data(self, start_date, end_date, frequency="1H", timezone_str="America/New_York"):
+    def get_energy_data(
+        self, start_date, end_date,
+        frequency="1H", timezone_str="America/New_York"
+    ):
         """Get energy data for a date range.
 
         Args:
             start_date: Start date as string in YYYY-MM-DD format
             end_date: End date as string in YYYY-MM-DD format
-            frequency: Data frequency - "1D" (daily), "1H" (hourly), or "15min" (15 minutes)
+            frequency: Data frequency - "1D" (daily),
+                       "1H" (hourly), or "15min" (15 minutes)
             timezone_str: Timezone string (e.g., "America/New_York")
 
         Returns:
@@ -343,12 +356,15 @@ class SymphonyGeothermal(object):
         # Validate frequency
         valid_frequencies = ["1D", "1H", "15min"]
         if frequency not in valid_frequencies:
-            raise ValueError(f"Invalid frequency. Must be one of {valid_frequencies}")
+            raise ValueError(
+                f"Invalid frequency. Must be one of {valid_frequencies}"
+            )
 
         # Build the API URL
         url = (
             f"{self.base_url}/api.php/v2/gateway/{self.gwid}/energy"
-            f"?freq={frequency}&start={start_date}&timezone={timezone_str}&end={end_date}"
+            f"?freq={frequency}&start={start_date}"
+            f"&timezone={timezone_str}&end={end_date}"
         )
 
         headers = {
@@ -371,7 +387,9 @@ class SymphonyGeothermal(object):
             )
             res.raise_for_status()
             data = res.json()
-            _LOGGER.debug(f"Received energy data: {len(data.get('index', []))} records")
+            _LOGGER.debug(
+                f"Received energy data: {len(data.get('index', []))} records"
+            )
             return WFEnergyData(data)
         except requests.exceptions.HTTPError as e:
             _LOGGER.error(f"HTTP error getting energy data: {e}")
@@ -387,14 +405,16 @@ class SymphonyGeothermal(object):
 class WaterFurnace(SymphonyGeothermal):
     def __init__(self, user, passwd, max_fails=5, device=0, location=0):
         super().__init__(
-            WF_BASE_URL, WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails, device, location
+            WF_BASE_URL, WF_LOGIN_URL, WF_WS_URL, user,
+            passwd, max_fails, device, location
         )
 
 
 class GeoStar(SymphonyGeothermal):
     def __init__(self, user, passwd, max_fails=5, device=0, location=0):
         super().__init__(
-            GS_BASE_URL, GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails, device, location
+            GS_BASE_URL, GS_LOGIN_URL, GS_WS_URL, user,
+            passwd, max_fails, device, location
         )
 
 
@@ -472,7 +492,9 @@ class WFEnergyReading(object):
         """
         self.timestamp_ms = timestamp_ms
         # Convert milliseconds to seconds for datetime
-        self.timestamp = datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
+        self.timestamp = datetime.fromtimestamp(
+            timestamp_ms / 1000.0, tz=timezone.utc
+        )
 
         # Create a mapping for easy access
         data_dict = {}
@@ -499,14 +521,18 @@ class WFEnergyReading(object):
         self.runtime_cool_2 = data_dict.get("runtime_cool_2")
         self.runtime_electric_heat = data_dict.get("runtime_electric_heat")
         self.runtime_fan_only = data_dict.get("runtime_fan_only")
-        self.runtime_dehumidification = data_dict.get("runtime_dehumidification")
+        self.runtime_dehumidification = data_dict.get(
+            "runtime_dehumidification"
+        )
         self.cool_runtime = data_dict.get("cool_runtime")
         self.heat_runtime = data_dict.get("heat_runtime")
 
         # Daily frequency specific fields
         self.id = data_dict.get("id")
         self.defrost_runtime = data_dict.get("defrost_runtime")
-        self.dehumidification_runtime = data_dict.get("dehumidification_runtime")
+        self.dehumidification_runtime = data_dict.get(
+            "dehumidification_runtime"
+        )
         self.time_zone = data_dict.get("time_zone")
 
         # Store all raw data for any custom access
@@ -525,7 +551,9 @@ class WFEnergyReading(object):
         return self._raw_data.get(key, default)
 
     def __repr__(self):
-        return f"<WFEnergyReading timestamp={self.timestamp}, power={self.total_power}>"
+        return f"<WFEnergyReading timestamp={self.timestamp}, power={
+            self.total_power
+        }>"
 
 
 class WFEnergyData(object):
@@ -545,7 +573,9 @@ class WFEnergyData(object):
         self.readings = []
         for i, timestamp in enumerate(self.index):
             if i < len(self.data):
-                reading = WFEnergyReading(timestamp, self.data[i], self.columns)
+                reading = WFEnergyReading(
+                    timestamp, self.data[i], self.columns
+                )
                 self.readings.append(reading)
 
     def __iter__(self):
