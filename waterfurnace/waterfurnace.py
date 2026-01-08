@@ -109,8 +109,17 @@ class WFError(WFException):
 
 class SymphonyGeothermal(object):
     def __init__(
-        self, login_url, ws_url, user, passwd, max_fails=5, device=0, location=0
+        self,
+        base_url,
+        login_url,
+        ws_url,
+        user,
+        passwd,
+        max_fails=5,
+        device=0,
+        location=0,
     ):
+        self.base_url = base_url
         self.login_url = login_url
         self.ws_url = ws_url
         self.user = user
@@ -388,14 +397,28 @@ class SymphonyGeothermal(object):
 class WaterFurnace(SymphonyGeothermal):
     def __init__(self, user, passwd, max_fails=5, device=0, location=0):
         super().__init__(
-            WF_LOGIN_URL, WF_WS_URL, user, passwd, max_fails, device, location
+            WF_BASE_URL,
+            WF_LOGIN_URL,
+            WF_WS_URL,
+            user,
+            passwd,
+            max_fails,
+            device,
+            location,
         )
 
 
 class GeoStar(SymphonyGeothermal):
     def __init__(self, user, passwd, max_fails=5, device=0, location=0):
         super().__init__(
-            GS_LOGIN_URL, GS_WS_URL, user, passwd, max_fails, device, location
+            GS_BASE_URL,
+            GS_LOGIN_URL,
+            GS_WS_URL,
+            user,
+            passwd,
+            max_fails,
+            device,
+            location,
         )
 
 
