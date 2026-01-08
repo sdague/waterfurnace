@@ -47,8 +47,8 @@ clean-test: ## remove test and coverage artifacts
 	rm -f .coverage
 	rm -fr htmlcov/
 
-lint: ## check style with flake8
-	flake8 waterfurnace tests
+lint: ## check style with black
+	black waterfurnace tests
 
 test: ## run tests quickly with the default Python
 	py.test
