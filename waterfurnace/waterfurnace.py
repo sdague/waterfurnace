@@ -320,7 +320,9 @@ class SymphonyGeothermal(object):
                 time.sleep(self.fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError("Failed to refresh credentials after retries")
 
-    def get_energy_data(self, start_date, end_date, frequency="1H", timezone_str="America/New_York"):
+    def get_energy_data(
+        self, start_date, end_date, frequency="1H", timezone_str="America/New_York"
+    ):
         """Get energy data for a date range.
 
         Args:

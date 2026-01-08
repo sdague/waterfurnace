@@ -106,7 +106,21 @@ logger.setLevel(logging.INFO)
     show_default=True,
     help="Timezone for energy data",
 )
-def main(user, passwd, sensors, continuous, device, location, vendor, debug, energy, start_date, end_date, frequency, timezone_str):
+def main(
+    user,
+    passwd,
+    sensors,
+    continuous,
+    device,
+    location,
+    vendor,
+    debug,
+    energy,
+    start_date,
+    end_date,
+    frequency,
+    timezone_str,
+):
     click.echo("\nStep 1: Login")
     if debug:
         logger.setLevel(logging.DEBUG)
@@ -130,12 +144,16 @@ def main(user, passwd, sensors, continuous, device, location, vendor, debug, ene
             return
 
         click.echo("\nStep 2: Get Energy Data")
-        click.echo("Start: {}, End: {}, Frequency: {}, Timezone: {}".format(
-            start_date, end_date, frequency, timezone_str
-        ))
+        click.echo(
+            "Start: {}, End: {}, Frequency: {}, Timezone: {}".format(
+                start_date, end_date, frequency, timezone_str
+            )
+        )
 
         try:
-            energy_data = wf.get_energy_data(start_date, end_date, frequency, timezone_str)
+            energy_data = wf.get_energy_data(
+                start_date, end_date, frequency, timezone_str
+            )
             click.echo("\nReceived {} energy readings".format(len(energy_data)))
 
             if len(energy_data) == 0:
