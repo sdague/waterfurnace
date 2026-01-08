@@ -1,16 +1,25 @@
-=======
 History
 =======
+
+1.3.1 (2026-01-07)
+------------------
+* Automate pypi build process
+
+1.3.0 (2026-01-07)
+------------------
+* CLI enhanced to allow prompt for password (thanks @masterkoppa)
+* Allow selecting device if multiple exist in your account (thanks @sam-kleiner)
+
 1.2.0 (2025-09-13)
 ------------------
 * Add SSL legacy compatibility to connect with modern SSL. Addresses
   UNSAFE_LEGACY_RENEGOTIATION_DISABLED error.
 * Add LeavingWaterTemp and WaterFlowRate sensors (Series 7 WF)
 * Added features to CLI (for details see --help)
- - Added debug flag 
- - Added option sensor list specification 
- - Added continous reporting 
- - Added ability to specify furnace in a multi unit system
+  * Added debug flag
+  * Added option sensor list specification
+  * Added continous reporting
+  * Added ability to specify furnace in a multi unit system
 
 1.1.0 (2019-01-07)
 ------------------

@@ -29,10 +29,11 @@ test_requirements = [
 
 setup(
     name="waterfurnace",
-    version="1.2.0",
+    version="1.3.1",
     description="Python interface for waterfurnace geothermal systems",
     entry_points={"console_scripts": ["waterfurnace=waterfurnace.cli:main"]},
     long_description=readme + "\n\n" + history,
+    long_description_content_type='text/x-rst',
     author="Sean Dague",
     author_email="sean@dague.net",
     url="https://github.com/sdague/waterfurnace",
