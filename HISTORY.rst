@@ -1,6 +1,10 @@
 History
 =======
 
+1.4.0 (2026-01-09)
+------------------
+* Add get_energy_data, useful for homeassistant (thanks @masterkoppa)
+
 1.3.1 (2026-01-07)
 ------------------
 * Automate pypi build process
