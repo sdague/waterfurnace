@@ -68,7 +68,9 @@ class TestSymphony(unittest.TestCase):
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
 
-        w = wf.WaterFurnace(str(mock.sentinel.email), str(mock.sentinel.passwd))
+        w = wf.WaterFurnace(
+            str(mock.sentinel.email), str(mock.sentinel.passwd)
+        )
         w.login()
         assert m_ws.method_calls[0] == mock.call.send(
             json.dumps(
@@ -224,3 +226,215 @@ class TestReadData(unittest.TestCase):
         mock_ws_create.return_value = m_ws
         with pytest.raises(wf.WFWebsocketClosedError):
             w.read()
+
+
+class TestEnergyData(unittest.TestCase):
+
+    def test_energy_reading_hourly_data(self):
+        """Test WFEnergyReading with hourly/15min frequency data."""
+        columns = [
+            "total_heat_1", "total_heat_2", "total_cool_1", "total_cool_2",
+            "total_electric_heat", "total_fan_only", "total_loop_pump",
+            "total_dehumidification", "runtime_heat_1", "runtime_heat_2",
+            "runtime_cool_1", "runtime_cool_2", "runtime_electric_heat",
+            "runtime_fan_only", "runtime_dehumidification", "total_records",
+            "cool_runtime", "heat_runtime", "total_power"
+        ]
+        values = [
+            0.46, 0.0, 0, 0, 0.0, 0.0, 0, 0, 0.47,
+            0.0, 0, 0, 0.0, 0.0, 0, 168, 0, 0.47, 0.46
+        ]
+        timestamp_ms = 1767578400000
+
+        reading = wf.WFEnergyReading(timestamp_ms, values, columns)
+
+        assert reading.timestamp_ms == timestamp_ms
+        assert reading.total_heat_1 == 0.46
+        assert reading.total_heat_2 == 0.0
+        assert reading.total_power == 0.46
+        assert reading.heat_runtime == 0.47
+        assert reading.cool_runtime == 0
+        assert reading.get("total_heat_1") == 0.46
+        assert reading.get("nonexistent", "default") == "default"
+
+    def test_energy_reading_daily_data(self):
+        """Test WFEnergyReading with daily frequency data."""
+        columns = [
+            "id", "cool_runtime", "defrost_runtime",
+            "dehumidification_runtime", "heat_runtime",
+            "time_zone", "total_cool_1", "total_cool_2",
+            "total_dehumidification", "total_electric_heat",
+            "total_fan_only", "total_heat_1", "total_heat_2",
+            "total_power", "total_records"
+        ]
+        values = [
+            "6CC840023E88", 0, 0, 0, 23.98, "America/New_York",
+            0, 0, 0, 0.0, 0.0, 17.32, 2.71, 20.03, 8641
+        ]
+        timestamp_ms = 1767434400000
+
+        reading = wf.WFEnergyReading(timestamp_ms, values, columns)
+
+        assert reading.id == "6CC840023E88"
+        assert reading.time_zone == "America/New_York"
+        assert reading.heat_runtime == 23.98
+        assert reading.total_power == 20.03
+        assert reading.defrost_runtime == 0
+        assert reading.dehumidification_runtime == 0
+
+    def test_energy_data_container(self):
+        """Test WFEnergyData container with multiple readings."""
+        fake_energy_response = {
+            "columns": [
+                "total_heat_1",
+                "total_heat_2",
+                "total_power",
+                "heat_runtime"
+            ],
+            "index": [1767578400000, 1767574800000, 1767571200000],
+            "data": [
+                [0.46, 0.0, 0.46, 0.47],
+                [0.98, 0.0, 0.98, 1.0],
+                [1.01, 0.0, 1.01, 1.0]
+            ]
+        }
+
+        energy_data = wf.WFEnergyData(fake_energy_response)
+
+        assert len(energy_data) == 3
+        assert len(energy_data.readings) == 3
+        assert energy_data.columns == fake_energy_response["columns"]
+
+        # Test iteration
+        count = 0
+        for reading in energy_data:
+            assert isinstance(reading, wf.WFEnergyReading)
+            count += 1
+        assert count == 3
+
+        # Test indexing
+        first_reading = energy_data[0]
+        assert first_reading.total_heat_1 == 0.46
+        assert first_reading.total_power == 0.46
+
+        second_reading = energy_data[1]
+        assert second_reading.total_heat_1 == 0.98
+        assert second_reading.total_power == 0.98
+
+    def test_energy_data_empty(self):
+        """Test WFEnergyData with empty data."""
+        empty_response = {
+            "columns": [],
+            "index": [],
+            "data": []
+        }
+
+        energy_data = wf.WFEnergyData(empty_response)
+        assert len(energy_data) == 0
+        assert len(energy_data.readings) == 0
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_success(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """Test successful get_energy_data call."""
+        # Setup login mocks
+        mock_post.return_value = FakeRequest(
+            cookies={"sessionid": "test_session_id"}
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        # Setup energy data response
+        fake_energy_response = {
+            "columns": ["total_heat_1", "total_power", "heat_runtime"],
+            "index": [1767578400000, 1767574800000],
+            "data": [[0.46, 0.46, 0.47], [0.98, 0.98, 1.0]]
+        }
+
+        mock_response = mock.MagicMock()
+        mock_response.json.return_value = fake_energy_response
+        mock_response.raise_for_status = mock.MagicMock()
+        mock_get.return_value = mock_response
+
+        # Create instance and login
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        # Get energy data
+        energy_data = w.get_energy_data(
+            "2026-01-03", "2026-01-04", "1H", "America/New_York"
+        )
+
+        # Verify the request was made correctly
+        mock_get.assert_called_once()
+        call_args = mock_get.call_args
+        assert "freq=1H" in call_args[0][0]
+        assert "start=2026-01-03" in call_args[0][0]
+        assert "end=2026-01-04" in call_args[0][0]
+        assert "timezone=America/New_York" in call_args[0][0]
+        assert call_args[1]["cookies"]["sessionid"] == "test_session_id"
+
+        # Verify the returned data
+        assert isinstance(energy_data, wf.WFEnergyData)
+        assert len(energy_data) == 2
+
+    def test_get_energy_data_not_logged_in(self):
+        """Test get_energy_data raises error when not logged in."""
+        w = wf.WaterFurnace("test@example.com", "password")
+
+        with pytest.raises(wf.WFCredentialError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_invalid_frequency(
+        self, mock_post, mock_ws_create
+    ):
+        """Test get_energy_data raises error with invalid frequency."""
+        # Setup login mocks
+        mock_post.return_value = FakeRequest(
+            cookies={"sessionid": "test_session_id"}
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(ValueError):
+            w.get_energy_data("2026-01-03", "2026-01-04", frequency="invalid")
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_http_error(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """Test get_energy_data handles HTTP errors."""
+        import requests
+
+        # Setup login mocks
+        mock_post.return_value = FakeRequest(
+            cookies={"sessionid": "test_session_id"}
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        # Setup error response
+        mock_response = mock.MagicMock()
+        mock_response.raise_for_status.side_effect = (
+            requests.exceptions.HTTPError("HTTP Error")
+        )
+        mock_get.return_value = mock_response
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(wf.WFError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
