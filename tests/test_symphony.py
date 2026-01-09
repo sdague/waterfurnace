@@ -68,9 +68,7 @@ class TestSymphony(unittest.TestCase):
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
 
-        w = wf.WaterFurnace(
-            str(mock.sentinel.email), str(mock.sentinel.passwd)
-        )
+        w = wf.WaterFurnace(str(mock.sentinel.email), str(mock.sentinel.passwd))
         w.login()
         assert m_ws.method_calls[0] == mock.call.send(
             json.dumps(
@@ -233,16 +231,46 @@ class TestEnergyData(unittest.TestCase):
     def test_energy_reading_hourly_data(self):
         """Test WFEnergyReading with hourly/15min frequency data."""
         columns = [
-            "total_heat_1", "total_heat_2", "total_cool_1", "total_cool_2",
-            "total_electric_heat", "total_fan_only", "total_loop_pump",
-            "total_dehumidification", "runtime_heat_1", "runtime_heat_2",
-            "runtime_cool_1", "runtime_cool_2", "runtime_electric_heat",
-            "runtime_fan_only", "runtime_dehumidification", "total_records",
-            "cool_runtime", "heat_runtime", "total_power"
+            "total_heat_1",
+            "total_heat_2",
+            "total_cool_1",
+            "total_cool_2",
+            "total_electric_heat",
+            "total_fan_only",
+            "total_loop_pump",
+            "total_dehumidification",
+            "runtime_heat_1",
+            "runtime_heat_2",
+            "runtime_cool_1",
+            "runtime_cool_2",
+            "runtime_electric_heat",
+            "runtime_fan_only",
+            "runtime_dehumidification",
+            "total_records",
+            "cool_runtime",
+            "heat_runtime",
+            "total_power",
         ]
         values = [
-            0.46, 0.0, 0, 0, 0.0, 0.0, 0, 0, 0.47,
-            0.0, 0, 0, 0.0, 0.0, 0, 168, 0, 0.47, 0.46
+            0.46,
+            0.0,
+            0,
+            0,
+            0.0,
+            0.0,
+            0,
+            0,
+            0.47,
+            0.0,
+            0,
+            0,
+            0.0,
+            0.0,
+            0,
+            168,
+            0,
+            0.47,
+            0.46,
         ]
         timestamp_ms = 1767578400000
 
@@ -260,16 +288,38 @@ class TestEnergyData(unittest.TestCase):
     def test_energy_reading_daily_data(self):
         """Test WFEnergyReading with daily frequency data."""
         columns = [
-            "id", "cool_runtime", "defrost_runtime",
-            "dehumidification_runtime", "heat_runtime",
-            "time_zone", "total_cool_1", "total_cool_2",
-            "total_dehumidification", "total_electric_heat",
-            "total_fan_only", "total_heat_1", "total_heat_2",
-            "total_power", "total_records"
+            "id",
+            "cool_runtime",
+            "defrost_runtime",
+            "dehumidification_runtime",
+            "heat_runtime",
+            "time_zone",
+            "total_cool_1",
+            "total_cool_2",
+            "total_dehumidification",
+            "total_electric_heat",
+            "total_fan_only",
+            "total_heat_1",
+            "total_heat_2",
+            "total_power",
+            "total_records",
         ]
         values = [
-            "6CC840023E88", 0, 0, 0, 23.98, "America/New_York",
-            0, 0, 0, 0.0, 0.0, 17.32, 2.71, 20.03, 8641
+            "6CC840023E88",
+            0,
+            0,
+            0,
+            23.98,
+            "America/New_York",
+            0,
+            0,
+            0,
+            0.0,
+            0.0,
+            17.32,
+            2.71,
+            20.03,
+            8641,
         ]
         timestamp_ms = 1767434400000
 
@@ -285,18 +335,13 @@ class TestEnergyData(unittest.TestCase):
     def test_energy_data_container(self):
         """Test WFEnergyData container with multiple readings."""
         fake_energy_response = {
-            "columns": [
-                "total_heat_1",
-                "total_heat_2",
-                "total_power",
-                "heat_runtime"
-            ],
+            "columns": ["total_heat_1", "total_heat_2", "total_power", "heat_runtime"],
             "index": [1767578400000, 1767574800000, 1767571200000],
             "data": [
                 [0.46, 0.0, 0.46, 0.47],
                 [0.98, 0.0, 0.98, 1.0],
-                [1.01, 0.0, 1.01, 1.0]
-            ]
+                [1.01, 0.0, 1.01, 1.0],
+            ],
         }
 
         energy_data = wf.WFEnergyData(fake_energy_response)
@@ -323,11 +368,7 @@ class TestEnergyData(unittest.TestCase):
 
     def test_energy_data_empty(self):
         """Test WFEnergyData with empty data."""
-        empty_response = {
-            "columns": [],
-            "index": [],
-            "data": []
-        }
+        empty_response = {"columns": [], "index": [], "data": []}
 
         energy_data = wf.WFEnergyData(empty_response)
         assert len(energy_data) == 0
@@ -336,14 +377,10 @@ class TestEnergyData(unittest.TestCase):
     @mock.patch("requests.get")
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")
-    def test_get_energy_data_success(
-        self, mock_post, mock_ws_create, mock_get
-    ):
+    def test_get_energy_data_success(self, mock_post, mock_ws_create, mock_get):
         """Test successful get_energy_data call."""
         # Setup login mocks
-        mock_post.return_value = FakeRequest(
-            cookies={"sessionid": "test_session_id"}
-        )
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
         m_ws = mock.MagicMock()
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
@@ -352,7 +389,7 @@ class TestEnergyData(unittest.TestCase):
         fake_energy_response = {
             "columns": ["total_heat_1", "total_power", "heat_runtime"],
             "index": [1767578400000, 1767574800000],
-            "data": [[0.46, 0.46, 0.47], [0.98, 0.98, 1.0]]
+            "data": [[0.46, 0.46, 0.47], [0.98, 0.98, 1.0]],
         }
 
         mock_response = mock.MagicMock()
@@ -391,14 +428,10 @@ class TestEnergyData(unittest.TestCase):
 
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")
-    def test_get_energy_data_invalid_frequency(
-        self, mock_post, mock_ws_create
-    ):
+    def test_get_energy_data_invalid_frequency(self, mock_post, mock_ws_create):
         """Test get_energy_data raises error with invalid frequency."""
         # Setup login mocks
-        mock_post.return_value = FakeRequest(
-            cookies={"sessionid": "test_session_id"}
-        )
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
         m_ws = mock.MagicMock()
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
@@ -412,24 +445,20 @@ class TestEnergyData(unittest.TestCase):
     @mock.patch("requests.get")
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")
-    def test_get_energy_data_http_error(
-        self, mock_post, mock_ws_create, mock_get
-    ):
+    def test_get_energy_data_http_error(self, mock_post, mock_ws_create, mock_get):
         """Test get_energy_data handles HTTP errors."""
         import requests
 
         # Setup login mocks
-        mock_post.return_value = FakeRequest(
-            cookies={"sessionid": "test_session_id"}
-        )
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
         m_ws = mock.MagicMock()
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
 
         # Setup error response
         mock_response = mock.MagicMock()
-        mock_response.raise_for_status.side_effect = (
-            requests.exceptions.HTTPError("HTTP Error")
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "HTTP Error"
         )
         mock_get.return_value = mock_response
 
