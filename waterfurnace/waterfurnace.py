@@ -306,9 +306,7 @@ class SymphonyGeothermal(object):
                 target_location = self.locations[self.location]
             except IndexError:
                 raise WFError(
-                    f"Location index out of range. Max index is {
-                        len(self.locations) - 1
-                    }"
+                    f"Location index out of range. Max index is {len(self.locations) - 1}"
                 )
         else:
             raise WFError("Unknown location type")
@@ -334,9 +332,7 @@ class SymphonyGeothermal(object):
                 target_location = self.locations[self.location]
             except IndexError:
                 raise WFError(
-                    f"Location index out of range. Max index is {
-                        len(self.locations) - 1
-                    }"
+                    f"Location index out of range. Max index is {len(self.locations) - 1}"
                 )
         else:
             raise WFError("Unknown location type")
