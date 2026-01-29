@@ -132,6 +132,7 @@ class SymphonyGeothermal(object):
         # For retry logic
         self.max_fails = max_fails
         self.fails = 0
+        self.locations = []
         _LOGGER.debug(self)
 
     def __repr__(self):
@@ -205,6 +206,11 @@ class SymphonyGeothermal(object):
         locations = data["locations"]
         location = None
 
+        if not locations:
+            raise WFError("Login succeeded but no locations found in account")
+
+        self.locations = [WFLocation(loc) for loc in locations]
+
         if isinstance(self.location, int):
             try:
                 location = locations[self.location]
@@ -267,6 +273,75 @@ class SymphonyGeothermal(object):
         # reset the transaction id if we start over
         self.tid = 1
         self._login_ws()
+
+    def get_locations(self):
+        """Get all available locations.
+
+        Returns:
+            List of WFLocation objects
+
+        Raises:
+            WFCredentialError: If not logged in
+        """
+        if not self.locations:
+            raise WFCredentialError("Must login before getting locations")
+        return self.locations
+
+    def get_location(self):
+        """Get the current location.
+
+        Returns:
+            WFLocation object
+
+        Raises:
+            WFCredentialError: If not logged in
+            WFError: If location not found
+        """
+        if not self.locations:
+            raise WFCredentialError("Must login before getting locations")
+
+        target_location = None
+        if isinstance(self.location, int):
+            try:
+                target_location = self.locations[self.location]
+            except IndexError:
+                raise WFError(
+                    f"Location index out of range. Max index is {
+                        len(self.locations) - 1
+                    }"
+                )
+        else:
+            raise WFError("Unknown location type")
+
+        return target_location
+
+    def get_devices(self):
+        """Get all devices for the current location.
+
+        Returns:
+            List of WFGateway objects
+
+        Raises:
+            WFCredentialError: If not logged in
+            WFError: If location not found
+        """
+        if not self.locations:
+            raise WFCredentialError("Must login before getting devices")
+
+        target_location = None
+        if isinstance(self.location, int):
+            try:
+                target_location = self.locations[self.location]
+            except IndexError:
+                raise WFError(
+                    f"Location index out of range. Max index is {
+                        len(self.locations) - 1
+                    }"
+                )
+        else:
+            raise WFError("Unknown location type")
+
+        return target_location.gateways
 
     def _abort(self, *args, **kwargs):
         _LOGGER.warning("Timeout on websocket request. Aborting websocket")
@@ -591,3 +666,58 @@ class WFEnergyData(object):
             f"<WFEnergyData records={len(self.readings)}, "
             f"columns={len(self.columns)}>"
         )
+
+
+class WFGateway:
+    """Represents a Symphony gateway/device."""
+
+    def __init__(self, data):
+        if "gwid" not in data:
+            raise ValueError("Gateway data must contain 'gwid' field")
+
+        self.gwid = data["gwid"]
+
+        self.description = data.get("description", self.gwid)
+        self.type = data.get("type")
+        self.awltstattype = data.get("awltstattype")
+        self.awltstattypedesc = data.get("awltstattypedesc")
+        self.iz2_max_zones = data.get("iz2_max_zones")
+        self.awlabctypedesc = data.get("awlabctypedesc")
+        self.awlabctype = data.get("awlabctype")
+        self.blowertype = data.get("blowertype")
+        self.online = data.get("online", 1)  # Assume online if not specified
+        self.tstat_name = data.get("tstat_name")
+
+        # Store raw data for debugging/future extensibility
+        self._raw = data
+
+    def is_online(self):
+        """Check if gateway is currently online."""
+        return bool(self.online)
+
+    def __repr__(self):
+        return f"<WFGateway gwid={self.gwid} description={self.description}>"
+
+
+class WFLocation:
+    """Represents a Symphony location."""
+
+    def __init__(self, data):
+        self.description = data.get("description", "Unknown")
+        self.postal = data.get("postal")
+        self.city = data.get("city")
+        self.state = data.get("state")
+        self.country = data.get("country")
+        self.latitude = data.get("latitude")
+        self.longitude = data.get("longitude")
+
+        # Convert gateways to WFGateway objects
+        self.gateways = [WFGateway(gw) for gw in data.get("gateways", [])]
+
+        # Store raw data for debugging/future extensibility
+        self._raw = data
+
+    def __repr__(self):
+        return f"<WFLocation description={self.description} gateways={
+            len(self.gateways)
+        }>"
