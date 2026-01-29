@@ -139,9 +139,7 @@ def main(
     click.echo("Login Succeeded: session_id = {}".format(wf.sessionid))
 
     click.echo("Selected Location: {}".format(wf.get_location().description))
-    click.echo("Selected Device: {}".format(
-        wf.get_devices()[device].description)
-    )
+    click.echo("Selected Device: {}".format(wf.get_devices()[device].description))
 
     if energy:
         # Energy data mode
