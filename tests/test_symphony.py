@@ -467,3 +467,129 @@ class TestEnergyData(unittest.TestCase):
 
         with pytest.raises(wf.WFError):
             w.get_energy_data("2026-01-03", "2026-01-04")
+
+
+class TestSymphonyLocationMethods:
+    """Tests for get_location, get_locations, and get_devices methods."""
+
+    def _create_symphony_instance(self, location=0, device=0):
+        """Helper to create a SymphonyGeothermal instance."""
+        return wf.SymphonyGeothermal(
+            "http://base.url",
+            "http://login.url",
+            "ws://ws.url",
+            "test@example.com",
+            "password",
+            device=device,
+            location=location,
+        )
+
+    def test_get_locations_before_login_raises_error(self):
+        """Test get_locations raises error if not logged in."""
+        symphony = self._create_symphony_instance()
+        with pytest.raises(
+            wf.WFCredentialError, match="Must login before getting locations"
+        ):
+            symphony.get_locations()
+
+    def test_get_locations_returns_list(self):
+        """Test get_locations returns a list of locations."""
+        symphony = self._create_symphony_instance()
+        loc_data = [
+            {
+                "description": "Home",
+                "gateways": [{"gwid": "gw-1"}],
+            },
+            {
+                "description": "Office",
+                "gateways": [{"gwid": "gw-2"}],
+            },
+        ]
+        symphony.locations = [wf.WFLocation(loc) for loc in loc_data]
+        locations = symphony.get_locations()
+        assert len(locations) == 2
+        assert all(isinstance(loc, wf.WFLocation) for loc in locations)
+
+    def test_get_location_before_login_raises_error(self):
+        """Test get_location raises error if not logged in."""
+        symphony = self._create_symphony_instance()
+        with pytest.raises(
+            wf.WFCredentialError, match="Must login before getting locations"
+        ):
+            symphony.get_location()
+
+    def test_get_location_by_index(self):
+        """Test get_location returns correct location by index."""
+        symphony = self._create_symphony_instance(location=0)
+        loc_data = [
+            {"description": "Home", "gateways": [{"gwid": "gw-1"}]},
+            {"description": "Office", "gateways": [{"gwid": "gw-2"}]},
+        ]
+        symphony.locations = [wf.WFLocation(loc) for loc in loc_data]
+        location = symphony.get_location()
+        assert location.description == "Home"
+
+    def test_get_location_index_out_of_range(self):
+        """Test get_location raises error for invalid index."""
+        symphony = self._create_symphony_instance(location=5)
+        loc_data = [{"description": "Home", "gateways": [{"gwid": "gw-1"}]}]
+        symphony.locations = [wf.WFLocation(loc) for loc in loc_data]
+        with pytest.raises(wf.WFError, match="Location index out of range"):
+            symphony.get_location()
+
+    def test_get_location_unknown_type(self):
+        """Test get_location raises error for invalid location type."""
+        symphony = self._create_symphony_instance(location="invalid_string")
+        loc_data = [{"description": "Home", "gateways": [{"gwid": "gw-1"}]}]
+        symphony.locations = [wf.WFLocation(loc) for loc in loc_data]
+        with pytest.raises(wf.WFError, match="Unknown location type"):
+            symphony.get_location()
+
+    def test_get_devices_before_login_raises_error(self):
+        """Test get_devices raises error if not logged in."""
+        symphony = self._create_symphony_instance()
+        with pytest.raises(
+            wf.WFCredentialError, match="Must login before getting devices"
+        ):
+            symphony.get_devices()
+
+    def test_get_devices_returns_list(self):
+        """Test get_devices returns a list of devices/gateways."""
+        symphony = self._create_symphony_instance(location=0)
+        loc_data = {
+            "description": "Home",
+            "gateways": [
+                {"gwid": "gw-1", "description": "Device 1"},
+                {"gwid": "gw-2", "description": "Device 2"},
+            ],
+        }
+        symphony.locations = [wf.WFLocation(loc_data)]
+        devices = symphony.get_devices()
+        assert len(devices) == 2
+        assert all(isinstance(dev, wf.WFGateway) for dev in devices)
+        assert devices[0].gwid == "gw-1"
+        assert devices[1].gwid == "gw-2"
+
+    def test_get_devices_no_devices(self):
+        """Test get_devices with location that has no devices."""
+        symphony = self._create_symphony_instance(location=0)
+        loc_data = {"description": "Home", "gateways": []}
+        symphony.locations = [wf.WFLocation(loc_data)]
+        devices = symphony.get_devices()
+        assert devices == []
+
+    def test_get_devices_location_index_out_of_range(self):
+        """Test get_devices raises error for invalid location index."""
+        symphony = self._create_symphony_instance(location=10)
+        loc_data = {"description": "Home", "gateways": [{"gwid": "gw-1"}]}
+        symphony.locations = [wf.WFLocation(loc_data)]
+        with pytest.raises(wf.WFError, match="Location index out of range"):
+            symphony.get_devices()
+
+    def test_get_devices_unknown_location_type(self):
+        """Test get_devices raises error for invalid location type."""
+        symphony = self._create_symphony_instance(location="invalid_string")
+        loc_data = {"description": "Home", "gateways": [{"gwid": "gw-1"}]}
+        symphony.locations = [wf.WFLocation(loc_data)]
+        with pytest.raises(wf.WFError, match="Unknown location type"):
+            symphony.get_devices()
