@@ -714,6 +714,4 @@ class WFLocation:
         self._raw = data
 
     def __repr__(self):
-        return f"<WFLocation description={self.description} gateways={
-            len(self.gateways)
-        }>"
+        return f"<WFLocation description={self.description} gateways={len(self.gateways)}>"
