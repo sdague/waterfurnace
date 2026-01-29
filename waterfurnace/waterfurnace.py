@@ -261,7 +261,7 @@ class SymphonyGeothermal(object):
         else:
             raise WFError(
                 "Unknown device type ({}): {}. Should be int or str".format(
-                    type(self.location), self.location
+                    type(self.device), self.device
                 )
             )
 
