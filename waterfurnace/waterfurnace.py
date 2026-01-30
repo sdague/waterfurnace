@@ -132,7 +132,7 @@ class SymphonyGeothermal(object):
         # For retry logic
         self.max_fails = max_fails
         self.fails = 0
-        self.locations = []
+        self._location_data = None
         _LOGGER.debug(self)
 
     def __repr__(self):
@@ -204,12 +204,8 @@ class SymphonyGeothermal(object):
         _LOGGER.debug("Login response: %s" % data)
 
         locations = data["locations"]
+        self._location_data = locations
         location = None
-
-        if not locations:
-            raise WFError("Login succeeded but no locations found in account")
-
-        self.locations = [WFLocation(loc) for loc in locations]
 
         if isinstance(self.location, int):
             try:
@@ -274,57 +270,20 @@ class SymphonyGeothermal(object):
         self.tid = 1
         self._login_ws()
 
-    def get_locations(self):
-        """Get all available locations.
+    @property
+    def locations(self):
+        """Get all available locations"""
+        if not isinstance(self._location_data, list):
+            return None
 
-        Returns:
-            List of WFLocation objects
+        return [WFLocation(loc) for loc in self._location_data]
 
-        Raises:
-            WFCredentialError: If not logged in
-        """
-        if not self.locations:
-            raise WFCredentialError("Must login before getting locations")
-        return self.locations
+    @property
+    def devices(self):
+        """Get all devices for the current location."""
 
-    def get_location(self):
-        """Get the current location.
-
-        Returns:
-            WFLocation object
-
-        Raises:
-            WFCredentialError: If not logged in
-            WFError: If location not found
-        """
-        if not self.locations:
-            raise WFCredentialError("Must login before getting locations")
-
-        target_location = None
-        if isinstance(self.location, int):
-            try:
-                target_location = self.locations[self.location]
-            except IndexError:
-                raise WFError(
-                    f"Location index out of range. Max index is {len(self.locations) - 1}"
-                )
-        else:
-            raise WFError("Unknown location type")
-
-        return target_location
-
-    def get_devices(self):
-        """Get all devices for the current location.
-
-        Returns:
-            List of WFGateway objects
-
-        Raises:
-            WFCredentialError: If not logged in
-            WFError: If location not found
-        """
-        if not self.locations:
-            raise WFCredentialError("Must login before getting devices")
+        if self.locations is None:
+            return None
 
         target_location = None
         if isinstance(self.location, int):
