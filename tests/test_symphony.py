@@ -467,3 +467,73 @@ class TestEnergyData(unittest.TestCase):
 
         with pytest.raises(wf.WFError):
             w.get_energy_data("2026-01-03", "2026-01-04")
+
+
+class TestSymphonyLocationMethods:
+    """Tests for locations and devices properties in SymphonyGeothermal."""
+
+    def _create_symphony_instance(self, location=0, device=0):
+        """Helper to create a SymphonyGeothermal instance."""
+        return wf.SymphonyGeothermal(
+            "http://base.url",
+            "http://login.url",
+            "ws://ws.url",
+            "test@example.com",
+            "password",
+            device=device,
+            location=location,
+        )
+
+    def test_locations_before_login_is_none(self):
+        """Test location property is None if not logged in."""
+        symphony = self._create_symphony_instance()
+        assert symphony.locations is None
+
+    def test_locations_returns_list(self):
+        """Test locations is a list of WFLocation objects."""
+        symphony = self._create_symphony_instance()
+        loc_data = [
+            {
+                "description": "Home",
+                "gateways": [{"gwid": "gw-1"}],
+            },
+            {
+                "description": "Office",
+                "gateways": [{"gwid": "gw-2"}],
+            },
+        ]
+        symphony._location_data = loc_data
+        assert len(symphony.locations) == 2
+        assert all(isinstance(loc, wf.WFLocation) for loc in symphony.locations)
+
+    def test_devices_before_login_is_none(self):
+        """Test devices property is None if not logged in."""
+        symphony = self._create_symphony_instance()
+
+        assert symphony.devices is None
+
+    def test_devices_is_list(self):
+        """Test devices is a list of WFGateway objects."""
+        symphony = self._create_symphony_instance(location=0)
+        loc_data = {
+            "description": "Home",
+            "gateways": [
+                {"gwid": "gw-1", "description": "Device 1"},
+                {"gwid": "gw-2", "description": "Device 2"},
+            ],
+        }
+        symphony._location_data = [loc_data]
+        devices = symphony.devices
+
+        assert len(devices) == 2
+        assert all(isinstance(dev, wf.WFGateway) for dev in devices)
+        assert devices[0].gwid == "gw-1"
+        assert devices[1].gwid == "gw-2"
+
+    def test_devices_no_devices_in_location(self):
+        """Test devices with location that has no devices."""
+        symphony = self._create_symphony_instance(location=0)
+        loc_data = {"description": "Home", "gateways": []}
+        symphony._location_data = [loc_data]
+
+        assert symphony.devices == []
