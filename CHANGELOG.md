@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0 (2026-01-31)
+
+* expose detailed location data for waterfurnace (thanks @masterkoppa)
+* project main branch transition from `master` to `main`
+* convert .rst to .md docs
+* cleanup of obsolete files
+
 ## 1.4.0 (2026-01-09)
 
 * Add get_energy_data, useful for homeassistant (thanks @masterkoppa)

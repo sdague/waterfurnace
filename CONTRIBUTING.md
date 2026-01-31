@@ -107,3 +107,17 @@ To run a subset of tests
 $ pytest tests.test_waterfurnace
 ```
 
+## Releasing
+
+Before releasing a new version ensure the following steps are taken.
+
+### Changelog
+
+Update the Changelog.md file with the content for the new release
+
+### Bump-my-version
+
+Use the bump my version to bump versions and create tags. Once the
+tags have been pushed, automation on github will ensure those packages
+get released.
+
