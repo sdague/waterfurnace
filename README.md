@@ -1,13 +1,8 @@
-============
-waterfurnace
-============
+# waterfurnace
 
 
-.. image:: https://img.shields.io/pypi/v/waterfurnace.svg
-   :target: https://pypi.python.org/pypi/waterfurnace
-
-.. image:: https://github.com/sdague/waterfurnace/actions/workflows/python-app.yml/badge.svg
-   :target: https://github.com/sdague/waterfurnace/actions/workflows/python-app.yml
+[![python package status](https://img.shields.io/pypi/v/waterfurnace.svg)](https://pypi.python.org/pypi/waterfurnace)
+[![build status](https://github.com/sdague/waterfurnace/actions/workflows/python-app.yml/badge.svg)](https://github.com/sdague/waterfurnace/actions/workflows/python-app.yml)
 
 
 Python interface for waterfurnace and geostar geothermal systems.
@@ -18,22 +13,15 @@ a documented or stable interface, so don't use this for critical
 systems. However, it is useful to record historical usage of your waterfurnace
 system.
 
-Usage
-=====
+## Usage
 
-.. code-block:: python
+```python
 
    from waterfurnace.waterfurnace import WaterFurnace
    wf = WaterFurnace(user, pass)
    wf.login()
    data = wf.read()
-
-.. code-block:: python
-
-   from waterfurnace.waterfurnace import GeoStar
-   gs = GeoStar(user, pass)
-   gs.login()
-   data = gs.read()
+```
 
 The waterfurnace symphony service websocket monitors it's usage, so you need to
 do a data reading at least every 30 seconds otherwise the websocket is closed
@@ -42,25 +30,16 @@ on the websocket every 5 seconds.
 
 The software now supports a CLI.  For details, use waterfurnace --help
 
-Known Issues / limitations
-==========================
+## Known Issues / limitations
 
 * The python websocket code goes into a blocked state after long
   periods of usage (always takes at least days if not weeks or months
   to get to this state). I've yet to discover why. Help welcome.
 
 
-License
-=======
+## License
 
 * Free software: Apache Software License 2.0
 * Documentation: https://waterfurnace.readthedocs.io.
 
 
-Credits
-=======
-
-This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
-
-.. _Cookiecutter: https://github.com/audreyr/cookiecutter
-.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
