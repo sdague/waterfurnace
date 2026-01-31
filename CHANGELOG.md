@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1 (2026-01-31)
+
+* pypi build fixes
+
 ## 1.5.0 (2026-01-31)
 
 * expose detailed location data for waterfurnace (thanks @masterkoppa)
