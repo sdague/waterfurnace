@@ -33,7 +33,7 @@ setup(
     description="Python interface for waterfurnace geothermal systems",
     entry_points={"console_scripts": ["waterfurnace=waterfurnace.cli:main"]},
     long_description=readme + "\n\n" + history,
-    long_description_content_type='text/x-rst',
+    long_description_content_type='text/markdown',
     author="Sean Dague",
     author_email="sean@dague.net",
     url="https://github.com/sdague/waterfurnace",
@@ -44,7 +44,7 @@ setup(
     zip_safe=False,
     keywords="waterfurnace",
     classifiers=[
-        "Development Status :: 2 - Pre-Alpha",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
         "Natural Language :: English",
