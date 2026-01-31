@@ -29,7 +29,7 @@ test_requirements = [
 
 setup(
     name="waterfurnace",
-    version="1.5.0",
+    version="1.5.1",
     description="Python interface for waterfurnace geothermal systems",
     entry_points={"console_scripts": ["waterfurnace=waterfurnace.cli:main"]},
     long_description=readme + "\n\n" + history,
