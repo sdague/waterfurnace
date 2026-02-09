@@ -39,7 +39,7 @@ logger.setLevel(logging.INFO)
     "continuous",
     required=False,
     is_flag=True,
-    help="Read sensors every 15 seconds continously",
+    help="Read sensors every 15 seconds continuously",
 )
 @click.option(
     "-D",
