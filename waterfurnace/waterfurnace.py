@@ -136,7 +136,7 @@ class SymphonyGeothermal(object):
         _LOGGER.debug(self)
 
     def __repr__(self):
-        return f"<Symphony user={self.user} passwd={self.passwd}>"
+        return f"<Symphony user={self.user}>"
 
     def next_tid(self):
         self.tid = (self.tid + 1) % 100
@@ -455,7 +455,9 @@ class GeoStar(SymphonyGeothermal):
 
 
 class WFReading(object):
-    def __init__(self, data={}):
+    def __init__(self, data=None):
+        if data is None:
+            data = {}
         self.zone = data.get("zone", 0)
         self.err = data.get("err", "")
         self.awlid = data.get("awlid", "")
