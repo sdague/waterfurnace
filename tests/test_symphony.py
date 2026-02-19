@@ -10,7 +10,11 @@ import pytest
 
 from waterfurnace import waterfurnace as wf
 
-FAKE_RESPONSE = {"err": "", "locations": [{"gateways": [{"gwid": "123456"}]}]}
+FAKE_RESPONSE = {
+    "err": "",
+    "key": 1234,
+    "locations": [{"gateways": [{"gwid": "123456"}]}],
+}
 
 
 FAKE_CONTENT = json.dumps(FAKE_RESPONSE)
@@ -81,6 +85,21 @@ class TestSymphony(unittest.TestCase):
             )
         )
         assert m_ws.method_calls[1] == mock.call.recv()
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("websocket.recv")
+    @mock.patch("requests.post")
+    def test_get_account_id(self, mock_req, m_recv, mock_ws_create):
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(str(mock.sentinel.email), str(mock.sentinel.passwd))
+        w.login()
+        assert w.account_id == 1234
 
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")

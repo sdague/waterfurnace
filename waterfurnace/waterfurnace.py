@@ -133,6 +133,8 @@ class SymphonyGeothermal(object):
         self.max_fails = max_fails
         self.fails = 0
         self._location_data = None
+        # Unique ID for the account, regardless of email changes.
+        self.account_id = None
         _LOGGER.debug(self)
 
     def __repr__(self):
@@ -202,6 +204,9 @@ class SymphonyGeothermal(object):
         recv = self.ws.recv()
         data = json.loads(recv)
         _LOGGER.debug("Login response: %s" % data)
+
+        if "key" in data:
+            self.account_id = data["key"]
 
         locations = data["locations"]
         self._location_data = locations
