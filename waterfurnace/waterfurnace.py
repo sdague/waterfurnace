@@ -107,6 +107,10 @@ class WFError(WFException):
     pass
 
 
+class WFNoDataError(WFException):
+    pass
+
+
 class SymphonyGeothermal(object):
     def __init__(
         self,
@@ -417,9 +421,15 @@ class SymphonyGeothermal(object):
                 timeout=TIMEOUT,
             )
             res.raise_for_status()
+            if not res.text.strip():
+                raise WFNoDataError(
+                    f"No energy data available for {start_date} to {end_date}"
+                )
             data = res.json()
             _LOGGER.debug(f"Received energy data: {len(data.get('index', []))} records")
             return WFEnergyData(data)
+        except WFNoDataError:
+            raise
         except requests.exceptions.HTTPError as e:
             _LOGGER.error(f"HTTP error getting energy data: {e}")
             raise WFError(f"Failed to get energy data: {e}")
