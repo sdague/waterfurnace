@@ -604,12 +604,14 @@ class WFEnergyReading(object):
 class WFEnergyData(object):
     """Container for energy data with multiple readings."""
 
-    def __init__(self, data={}):
+    def __init__(self, data=None):
         """Initialize energy data from API response.
 
         Args:
             data: Dictionary containing columns, index, and data arrays
         """
+        if data is None:
+            data = {}
         self.columns = data.get("columns", [])
         self.index = data.get("index", [])
         self.data = data.get("data", [])
