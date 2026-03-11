@@ -13,7 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v6 # Checkout the code
     - name: Set up Python
-      uses: actions/setup-python@v5 # Set up the Python environment
+      uses: actions/setup-python@v6 # Set up the Python environment
       with:
         python-version: "3.x"
     - name: Install pypa/build # Install the build tool
