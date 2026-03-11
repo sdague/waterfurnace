@@ -202,6 +202,8 @@ def main(
                     click.echo("   Avg: {:.2f}".format(avg_val))
                     click.echo("   Total: {:.2f}".format(total_val))
 
+        except waterfurnace.waterfurnace.WFNoDataError as e:
+            click.echo(f"No data available: {e}")
         except Exception as e:
             click.echo("Error getting energy data: {}".format(e))
             raise

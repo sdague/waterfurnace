@@ -487,6 +487,29 @@ class TestEnergyData(unittest.TestCase):
         with pytest.raises(wf.WFError):
             w.get_energy_data("2026-01-03", "2026-01-04")
 
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_empty_response(self, mock_post, mock_ws_create, mock_get):
+        """Test get_energy_data raises WFNoDataError on empty response."""
+        # Setup login mocks
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        # Setup empty response (simulates out-of-bounds date range)
+        mock_response = mock.MagicMock()
+        mock_response.text = ""
+        mock_response.raise_for_status = mock.MagicMock()
+        mock_get.return_value = mock_response
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(wf.WFNoDataError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
+
 
 class TestSymphonyLocationMethods:
     """Tests for locations and devices properties in SymphonyGeothermal."""
