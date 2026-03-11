@@ -4,6 +4,8 @@
 
 * Add WFNoDataError error when energy data is not available (thanks @masterkoppa)
 * Update GitHub Actions: checkout from v4 to v6, setup-python from v5 to v6, codecov-action from v4 to v5
+* Add Python 3.14 to GitHub Actions test matrix
+* Update black target versions to include Python 3.13 and 3.14
 
 ## 1.5.1 (2026-01-31)
 
