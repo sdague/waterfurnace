@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4 # Checkout the code
+    - uses: actions/checkout@v6 # Checkout the code
     - name: Set up Python
       uses: actions/setup-python@v5 # Set up the Python environment
       with:
@@ -53,7 +53,7 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
-        
+
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
@@ -74,7 +74,7 @@ jobs:
         path: dist/
     - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
-      
+
   github-release:
     name: >-
       Create GitHub Release with source code
@@ -87,7 +87,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4 # Checkout the code
+      uses: actions/checkout@v6 # Checkout the code
 
     - name: Create GitHub Release
       env:

@@ -3,7 +3,7 @@
 ## 1.6.0 (2026-03-11)
 
 * Add WFNoDataError error when energy data is not available (thanks @masterkoppa)
-* Update GitHub Actions: codecov-action from v4 to v5
+* Update GitHub Actions: checkout from v4 to v6, codecov-action from v4 to v5
 
 ## 1.5.1 (2026-01-31)
 
