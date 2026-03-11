@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 (2026-03-11)
+
+* pypi build fixes
+
 ## 1.6.0 (2026-03-11)
 
 * Add WFNoDataError error when energy data is not available (thanks @masterkoppa)
