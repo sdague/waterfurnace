@@ -21,7 +21,14 @@ pre_commit_hooks = []
 post_commit_hooks = []
 
 [[tool.bumpversion.files]]
-filename = "setup.py"
+filename = "waterfurnace/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
 
 [[tool.bumpversion.files]]
-filename = "waterfurnace/__init__.py"
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "setup.py"
