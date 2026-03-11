@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """Tests for `waterfurnace` package."""
+
 import logging
 import json
 from unittest import mock
