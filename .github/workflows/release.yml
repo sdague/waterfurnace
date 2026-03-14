@@ -129,20 +129,23 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
-          python -c "
-import re
-with open('CHANGELOG.md', 'r') as f:
-    content = f.read()
-    # Find the section for this version
-    pattern = rf'## \[{re.escape(VERSION)}\].*?\n(.*?)(?=\n## \[|$)'
-    match = re.search(pattern, content, re.DOTALL)
-    if match:
-        notes = match.group(1).strip()
-        print(notes)
-    else:
-        print(f'Release version {VERSION}')
-" > release-notes.md
+          python3 << 'EOF' > release-notes.md
+          import re
+          import os
+          VERSION = os.environ.get('VERSION', '')
+          with open('CHANGELOG.md', 'r') as f:
+              content = f.read()
+              pattern = rf'## \[{re.escape(VERSION)}\].*?\n(.*?)(?=\n## \[|$)'
+              match = re.search(pattern, content, re.DOTALL)
+              if match:
+                  notes = match.group(1).strip()
+                  print(notes)
+              else:
+                  print(f'Release version {VERSION}')
+          EOF
           cat release-notes.md
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
 
       - name: Download distribution artifacts
         uses: actions/download-artifact@v6
@@ -171,4 +174,3 @@ with open('CHANGELOG.md', 'r') as f:
           echo "- Package published to PyPI" >> $GITHUB_STEP_SUMMARY
           echo "- Users can download the release or update via pip" >> $GITHUB_STEP_SUMMARY
 
-# Made with Bob
