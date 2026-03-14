@@ -73,30 +73,37 @@ docs: ## generate Sphinx HTML documentation, including API docs
 servedocs: docs ## compile the docs watching for changes
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
-release: clean ## package and create a git tag for release (runs tests first)
-	@echo "Running tests..."
-	tox
-	@if [ $$? -ne 0 ]; then \
-		echo "Tests failed. Aborting release."; \
-		exit 1; \
-	fi
-	@echo "Building distribution packages..."
-	python -m build
-	@echo ""
-	@echo "Distribution built successfully in dist/"
-	@echo ""
-	@read -p "Enter new version (current: $$(grep '^version = ' pyproject.toml | cut -d'"' -f2)): " version; \
+release: clean ## update version and trigger release workflow
+	@echo "Current version: $$(grep '^version = ' pyproject.toml | cut -d'"' -f2)"
+	@read -p "Enter new version: " version; \
 	if [ -z "$$version" ]; then \
 		echo "No version provided. Aborting."; \
 		exit 1; \
 	fi; \
+	if ! echo "$$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "Error: Version must be in format X.Y.Z"; \
+		exit 1; \
+	fi; \
+	echo "Updating version to $$version in pyproject.toml..."; \
 	sed -i "s/^version = .*/version = \"$$version\"/" pyproject.toml; \
-	git add pyproject.toml; \
-	git commit -m "Bump version to $$version"; \
-	git tag -a "v$$version" -m "Release version $$version"; \
 	echo ""; \
-	echo "Version bumped to $$version and tagged as v$$version"; \
-	echo "Run 'git push && git push --tags' to publish"
+	echo "Please update CHANGELOG.md with changes for version $$version"; \
+	read -p "Press Enter when CHANGELOG.md is updated..."; \
+	git add pyproject.toml CHANGELOG.md; \
+	git commit -m "Release version $$version"; \
+	echo ""; \
+	echo "Pushing to main branch..."; \
+	git push origin main; \
+	echo ""; \
+	echo "✅ Release workflow triggered!"; \
+	echo ""; \
+	echo "The GitHub Actions workflow will:"; \
+	echo "  1. Run tests on all Python versions"; \
+	echo "  2. Build the package"; \
+	echo "  3. Publish to PyPI"; \
+	echo "  4. Create GitHub release with tag v$$version"; \
+	echo ""; \
+	echo "Monitor progress at: https://github.com/sdague/waterfurnace/actions"
 
 dist: clean ## builds source and wheel package
 	python -m build
