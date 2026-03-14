@@ -50,9 +50,8 @@ clean-test: ## remove test and coverage artifacts
 lint: ## check style with black
 	black waterfurnace tests
 
-test: ## run tests quickly with the default Python
-	py.test
-	
+test: ## run tests on all Python versions with tox
+	tox
 
 test-all: ## run tests on every Python version with tox
 	tox
@@ -74,14 +73,34 @@ docs: ## generate Sphinx HTML documentation, including API docs
 servedocs: docs ## compile the docs watching for changes
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
-release: clean ## package and upload a release
-	python setup.py sdist upload
-	python setup.py bdist_wheel upload
+release: clean ## package and create a git tag for release (runs tests first)
+	@echo "Running tests..."
+	tox
+	@if [ $$? -ne 0 ]; then \
+		echo "Tests failed. Aborting release."; \
+		exit 1; \
+	fi
+	@echo "Building distribution packages..."
+	python -m build
+	@echo ""
+	@echo "Distribution built successfully in dist/"
+	@echo ""
+	@read -p "Enter new version (current: $$(grep '^version = ' pyproject.toml | cut -d'"' -f2)): " version; \
+	if [ -z "$$version" ]; then \
+		echo "No version provided. Aborting."; \
+		exit 1; \
+	fi; \
+	sed -i "s/^version = .*/version = \"$$version\"/" pyproject.toml; \
+	git add pyproject.toml; \
+	git commit -m "Bump version to $$version"; \
+	git tag -a "v$$version" -m "Release version $$version"; \
+	echo ""; \
+	echo "Version bumped to $$version and tagged as v$$version"; \
+	echo "Run 'git push && git push --tags' to publish"
 
 dist: clean ## builds source and wheel package
-	python setup.py sdist
-	python setup.py bdist_wheel
+	python -m build
 	ls -l dist
 
 install: clean ## install the package to the active Python's site-packages
-	python setup.py install
+	pip install -e .

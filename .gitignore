@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Editor backup files
+*~
+*.swp
+*.swo
+*.bak
+.DS_Store
+
 # Distribution / packaging
 .Python
 env/
