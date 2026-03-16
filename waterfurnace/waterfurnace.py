@@ -207,7 +207,7 @@ class SymphonyGeothermal(object):
         # it's not clear anything is useful in it.
         recv = self.ws.recv()
         data = json.loads(recv)
-        _LOGGER.debug("Login response: %s" % data)
+        _LOGGER.debug("Login response: %s", data)
 
         if "key" in data:
             self.account_id = data["key"]
@@ -315,7 +315,7 @@ class SymphonyGeothermal(object):
         req["tid"] = self.tid
         req["awlid"] = self.gwid
 
-        _LOGGER.debug("Req: %s" % req)
+        _LOGGER.debug("Req: %s", req)
         timer = threading.Timer(10.0, self._abort, [self])
         timer.start()
         self.ws.send(json.dumps(req))
@@ -330,7 +330,7 @@ class SymphonyGeothermal(object):
             data = self._ws_read()
             self.next_tid()
             datadecoded = json.loads(data)
-            _LOGGER.debug("Resp: %s" % datadecoded)
+            _LOGGER.debug("Resp: %s", datadecoded)
             if not datadecoded["err"]:
                 return WFReading(datadecoded)
             else:
