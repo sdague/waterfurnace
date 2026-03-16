@@ -27,8 +27,10 @@ def test_content(response):
     # assert 'GitHub' in BeautifulSoup(response.content).title.string
 
 
-def test_command_line_interface():
+def test_command_line_interface(monkeypatch):
     """Test the CLI."""
+    monkeypatch.delenv("WF_USERNAME", raising=False)
+    monkeypatch.delenv("WF_PASSWORD", raising=False)
     runner = CliRunner()
     result = runner.invoke(cli.main)
     assert result.exit_code == 2

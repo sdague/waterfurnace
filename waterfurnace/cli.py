@@ -15,7 +15,14 @@ logger.setLevel(logging.INFO)
 
 
 @click.command()
-@click.option("-u", "--username", "user", required=True, help="Symphony username")
+@click.option(
+    "-u",
+    "--username",
+    "user",
+    envvar="WF_USERNAME",
+    required=True,
+    help="Symphony username (or set WF_USERNAME env var)",
+)
 @click.option(
     "-p",
     "--password",
