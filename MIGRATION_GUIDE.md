@@ -98,18 +98,6 @@ python -m build
 tox -e build
 ```
 
-### Version Bumping
-
-**Old way:**
-```bash
-bumpversion patch  # or minor, major
-```
-
-**New way:**
-```bash
-bump-my-version bump patch  # or minor, major
-```
-
 ## Configuration Files
 
 ### What's New

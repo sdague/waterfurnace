@@ -93,7 +93,7 @@ This document summarizes all changes made to modernize the waterfurnace project.
 ### Developer Experience
 - ✅ Single command setup: `pip install -e ".[dev]"`
 - ✅ All configuration in one place (pyproject.toml)
-- ✅ Modern tooling (build, bump-my-version)
+- ✅ Modern tooling (build)
 - ✅ Better documentation
 
 ### Standards Compliance

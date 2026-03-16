@@ -7,7 +7,6 @@
 ## 1.6.2 (2026-03-11)
 
 * pypi build fixes
-* bump-my-version fixes
 
 ## 1.6.0 (2026-03-11)
 
