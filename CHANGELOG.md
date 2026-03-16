@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.3 (2026-03-16)
+
+* Update log formatting.
+
 ## 1.6.2 (2026-03-11)
 
 * pypi build fixes
