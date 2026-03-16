@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.4 (2026-03-16)
+
+* Allow the username to be an environment variable.
+* Allow session reuse.
+
 ## 1.6.3 (2026-03-16)
 
 * Update log formatting.
