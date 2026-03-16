@@ -174,9 +174,9 @@ class SymphonyGeothermal(object):
                 "Did not find expected session cookie, login failed."
                 " A lot of debug info coming..."
             )
-            _LOGGER.debug("Response: {}".format(res))
-            _LOGGER.debug("Response Cookies: {}".format(res.cookies))
-            _LOGGER.debug("Response Content: {}".format(res.content))
+            _LOGGER.debug("Response: %s", res)
+            _LOGGER.debug("Response Cookies: %s", res.cookies)
+            _LOGGER.debug("Response Content: %s", res.content)
             if FAILED_LOGIN in res.content:
                 _LOGGER.error(
                     "Failed to log in, are you sure your user / password are correct"
@@ -221,9 +221,7 @@ class SymphonyGeothermal(object):
                 location = locations[self.location]
             except Exception:
                 raise WFError(
-                    "Location index out of range. Max index is {}".format(
-                        len(locations) - 1
-                    )
+                    "Location index out of range. Max index is %s", len(locations) - 1
                 )
         elif isinstance(self.location, str):
             for index, location_data in enumerate(locations):
@@ -233,12 +231,12 @@ class SymphonyGeothermal(object):
                     break
 
             if not location:
-                raise WFError("Unable to find location: {}".format(self.location))
+                raise WFError("Unable to find location: %s", self.location)
         else:
             raise WFError(
-                "Unknown location type ({}): {}. Should be int or str".format(
-                    type(self.location), self.location
-                )
+                "Unknown location type (%s): %s. Should be int or str",
+                type(self.location),
+                self.location,
             )
 
         gateways = location["gateways"]
@@ -249,9 +247,7 @@ class SymphonyGeothermal(object):
                 device = gateways[self.device]
             except Exception:
                 raise WFError(
-                    "Device index out of range. Max index is {}".format(
-                        len(gateways) - 1
-                    )
+                    "Device index out of range. Max index is %s", len(gateways) - 1
                 )
         elif isinstance(self.device, str):
             for index, gateway_data in enumerate(gateways):
@@ -262,12 +258,12 @@ class SymphonyGeothermal(object):
                     break
 
             if not device:
-                raise WFError("Unable to find device: {}".format(self.device))
+                raise WFError("Unable to find device: %s", self.device)
         else:
             raise WFError(
-                "Unknown device type ({}): {}. Should be int or str".format(
-                    type(self.device), self.device
-                )
+                "Unknown device type (%s): %s. Should be int or str",
+                type(self.device),
+                self.device,
             )
 
         self.gwid = device["gwid"]
@@ -343,7 +339,7 @@ class SymphonyGeothermal(object):
             _LOGGER.exception("Websocket closed, probably from a timeout")
             raise WFWebsocketClosedError()
         except ValueError:
-            _LOGGER.exception("Unable to decode data as json: {}".format(data))
+            _LOGGER.exception("Unable to decode data as json: %s", data)
             raise WFWebsocketClosedError()
         except Exception:
             _LOGGER.exception("Unknown exception, socket probably failed")
