@@ -122,6 +122,7 @@ class SymphonyGeothermal(object):
         max_fails=5,
         device=0,
         location=0,
+        sessionid=None,
     ):
         self.base_url = base_url
         self.login_url = login_url
@@ -131,7 +132,7 @@ class SymphonyGeothermal(object):
         self.location = location
         self.device = device
         self.gwid = None
-        self.sessionid = None
+        self.sessionid = sessionid
         self.tid = 0
         # For retry logic
         self.max_fails = max_fails
@@ -146,6 +147,33 @@ class SymphonyGeothermal(object):
 
     def next_tid(self):
         self.tid = (self.tid + 1) % 100
+
+    def _check_session_id(self):
+        """Check an existing session ID."""
+        _LOGGER.debug("Checking existing session.")
+        headers = {
+            "user-agent": USER_AGENT,
+        }
+        res = requests.get(
+            f"{self.base_url}/api.php/user",
+            headers=headers,
+            cookies={
+                "legal-acknowledge": "yes",
+                "sessionid": self.sessionid,
+            },
+            timeout=TIMEOUT,
+            allow_redirects=False,
+        )
+        try:
+            res.json()["emailaddress"]
+        except KeyError:
+            _LOGGER.error(
+                "Existing session is not valid" " A lot of debug info coming..."
+            )
+            _LOGGER.debug("Response: %s", res)
+            _LOGGER.debug("Response Cookies: %s", res.cookies)
+            _LOGGER.debug("Response Content: %s", res.content)
+            raise WFCredentialError()
 
     def _get_session_id(self):
         data = dict(
@@ -270,7 +298,13 @@ class SymphonyGeothermal(object):
         self.next_tid()
 
     def login(self):
-        self._get_session_id()
+        if self.sessionid:
+            try:
+                self._check_session_id()
+            except WFCredentialError:
+                self._get_session_id()
+        else:
+            self._get_session_id()
         # reset the transaction id if we start over
         self.tid = 1
         self._login_ws()
@@ -438,7 +472,7 @@ class SymphonyGeothermal(object):
 
 
 class WaterFurnace(SymphonyGeothermal):
-    def __init__(self, user, passwd, max_fails=5, device=0, location=0):
+    def __init__(self, user, passwd, max_fails=5, device=0, location=0, sessionid=None):
         super().__init__(
             WF_BASE_URL,
             WF_LOGIN_URL,
@@ -448,11 +482,12 @@ class WaterFurnace(SymphonyGeothermal):
             max_fails,
             device,
             location,
+            sessionid=sessionid,
         )
 
 
 class GeoStar(SymphonyGeothermal):
-    def __init__(self, user, passwd, max_fails=5, device=0, location=0):
+    def __init__(self, user, passwd, max_fails=5, device=0, location=0, sessionid=None):
         super().__init__(
             GS_BASE_URL,
             GS_LOGIN_URL,
@@ -462,6 +497,7 @@ class GeoStar(SymphonyGeothermal):
             max_fails,
             device,
             location,
+            sessionid=sessionid,
         )
 
 

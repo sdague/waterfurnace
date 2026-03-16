@@ -34,6 +34,13 @@ logger.setLevel(logging.INFO)
     help="Symphony password (or set WF_PASSWORD env var)",
 )
 @click.option(
+    "--sessionid",
+    "sessionid",
+    envvar="WF_SESSIONID",
+    required=False,
+    help="Symphony session ID (or set WF_SESSIONID env var)",
+)
+@click.option(
     "-s",
     "--sensors",
     "sensors",
@@ -116,6 +123,7 @@ logger.setLevel(logging.INFO)
 def main(
     user,
     passwd,
+    sessionid,
     sensors,
     continuous,
     device,
@@ -135,11 +143,11 @@ def main(
 
     if vendor == "geostar":
         wf = waterfurnace.waterfurnace.GeoStar(
-            user, passwd, device=device, location=location
+            user, passwd, device=device, location=location, sessionid=sessionid
         )
     else:
         wf = waterfurnace.waterfurnace.WaterFurnace(
-            user, passwd, device=device, location=location
+            user, passwd, device=device, location=location, sessionid=sessionid
         )
     wf.login()
 

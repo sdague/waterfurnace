@@ -31,6 +31,7 @@ def test_command_line_interface(monkeypatch):
     """Test the CLI."""
     monkeypatch.delenv("WF_USERNAME", raising=False)
     monkeypatch.delenv("WF_PASSWORD", raising=False)
+    monkeypatch.delenv("WF_SESSIONID", raising=False)
     runner = CliRunner()
     result = runner.invoke(cli.main)
     assert result.exit_code == 2
