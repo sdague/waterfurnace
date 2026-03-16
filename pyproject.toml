@@ -41,6 +41,7 @@ dev = [
     "watchdog>=0.8.3",
     "Sphinx>=7.0",
     "PyYAML>=6.0",
+    "bump-my-version>=1.2,<2.0",
 ]
 test = [
     "pytest>=7.0",
