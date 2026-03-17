@@ -101,6 +101,5 @@ twine check dist/*
 ## License
 
 * Free software: Apache Software License 2.0
-* Documentation: https://waterfurnace.readthedocs.io.
 
 
