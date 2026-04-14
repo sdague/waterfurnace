@@ -217,6 +217,10 @@ class TestReadData(unittest.TestCase):
         assert data.waterflowrate == 12.2
         assert data.leavingairtemp == 67.7
         assert data.tstatactivesetpoint == 69
+        assert data.activesettings.activemode == 3
+        assert data.activesettings.mode == "Heat"
+        assert data.activesettings.heatingsp_read == 69
+        assert data.activesettings.coolingsp_read == 75
 
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")

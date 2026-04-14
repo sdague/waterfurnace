@@ -36,6 +36,14 @@ FURNACE_MODE = (
     "Lockout",
 )
 
+ACTIVE_MODE = (
+    "Off",
+    "Auto",
+    "Cool",
+    "Heat",
+    "E-Heat",
+)
+
 FAILED_LOGIN = (
     "Your login failed. Please check your email address / password and try again."
 )
@@ -501,6 +509,33 @@ class GeoStar(SymphonyGeothermal):
         )
 
 
+class ActiveSettings:
+    def __init__(self, data=None):
+        if data is None:
+            data = {}
+        self.activemode = data.get("activemode")
+        self.heatingsp_read = data.get("heatingsp_read")
+        self.coolingsp_read = data.get("coolingsp_read")
+        self.fanmode_read = data.get("fanmode_read")
+        self.temporaryoverride = data.get("temporaryoverride")
+        self.permanenthold = data.get("permanenthold")
+        self.vacationhold = data.get("vacationhold")
+        self.onpeakhold = data.get("onpeakhold")
+        self.superboost = data.get("superboost")
+        self.tstatmode = data.get("tstatmode")
+        self.intertimeon_read = data.get("intertimeon_read")
+        self.intertimeoff_read = data.get("intertimeoff_read")
+
+    @property
+    def mode(self):
+        if self.activemode is not None:
+            return ACTIVE_MODE[self.activemode]
+        return None
+
+    def __repr__(self):
+        return f"<ActiveSettings mode={self.mode}, heatingsp={self.heatingsp_read}, coolingsp={self.coolingsp_read}>"
+
+
 class WFReading(object):
     def __init__(self, data=None):
         if data is None:
@@ -545,17 +580,21 @@ class WFReading(object):
         # Loop water flow rate (gallons per minute)
         self.waterflowrate = data.get("waterflowrate")
 
+        # active settings
+        self.activesettings = ActiveSettings(data.get("activesettings"))
+
     @property
     def mode(self):
         return FURNACE_MODE[self.modeofoperation]
 
     def __repr__(self):
         return (
-            "<FurnaceReading power=%d, mode=%s, looptemp=%.1f, "
+            "<FurnaceReading power=%d, mode=%s, activemode=%s, looptemp=%.1f, "
             "airtemp=%.1f, roomtemp=%.1f, setpoint=%d>"
             % (
                 self.totalunitpower,
                 self.mode,
+                self.activesettings.mode,
                 self.enteringwatertemp,
                 self.leavingairtemp,
                 self.tstatroomtemp,
