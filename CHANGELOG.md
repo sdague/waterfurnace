@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.5 (2026-04-15)
+
+* Add support for `activesettings`, and `activemode` (thanks @masterkoppa)
+
 ## 1.6.4 (2026-03-16)
 
 * Allow the username to be an environment variable.
