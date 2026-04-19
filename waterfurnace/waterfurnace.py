@@ -44,6 +44,12 @@ ACTIVE_MODE = (
     "E-Heat",
 )
 
+FAN_MODE = (
+    "Auto",
+    "Continuous",
+    "Intermittent",
+)
+
 FAILED_LOGIN = (
     "Your login failed. Please check your email address / password and try again."
 )
@@ -367,6 +373,42 @@ class SymphonyGeothermal(object):
         timer.cancel()
         return data
 
+    def _ws_write(self, **kwargs):
+        req = {
+            "cmd": "write",
+            "tid": self.tid,
+            "awlid": self.gwid,
+            "source": "tstat",
+        }
+        req.update(kwargs)
+
+        _LOGGER.debug("Write req: %s", req)
+        timer = threading.Timer(10.0, self._abort, [self])
+        timer.start()
+        try:
+            self.ws.send(json.dumps(req))
+            data = self.ws.recv()
+            timer.cancel()
+            self.next_tid()
+            datadecoded = json.loads(data)
+            _LOGGER.debug("Write resp: %s", datadecoded)
+            if datadecoded["err"]:
+                raise WFError(datadecoded["err"])
+            return datadecoded
+        except WFError:
+            raise
+        except websocket.WebSocketConnectionClosedException:
+            _LOGGER.exception("Websocket closed, probably from a timeout")
+            raise WFWebsocketClosedError()
+        except ValueError:
+            _LOGGER.exception("Unable to decode data as json: %s", data)
+            raise WFWebsocketClosedError()
+        except Exception:
+            _LOGGER.exception("Unknown exception, socket probably failed")
+            raise WFWebsocketClosedError()
+        finally:
+            timer.cancel()
+
     def read(self):
         try:
             data = self._ws_read()
@@ -405,6 +447,114 @@ class SymphonyGeothermal(object):
                 _LOGGER.exception("websocket read failed, reconnecting")
                 time.sleep(self.fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError("Failed to refresh credentials after retries")
+
+    def set_mode(self, mode):
+        """Set the active thermostat mode.
+
+        Args:
+            mode: Integer 0-4 (Off=0, Auto=1, Cool=2, Heat=3, E-Heat=4)
+        """
+        if isinstance(mode, bool) or not isinstance(mode, int) or mode < 0 or mode > 4:
+            raise ValueError(f"mode must be an integer 0-4, got: {mode}")
+        return self._ws_write(activemode_write=mode)
+
+    def set_cooling_setpoint(self, temperature):
+        """Set the cooling temperature setpoint.
+
+        Only effective when in Cool or Auto mode.
+
+        Args:
+            temperature: Temperature in degrees Fahrenheit (60-90)
+        """
+        if not isinstance(temperature, (int, float)):
+            raise ValueError(
+                f"temperature must be numeric, got: {type(temperature).__name__}"
+            )
+        if temperature < 60 or temperature > 90:
+            raise ValueError(
+                f"cooling temperature must be between 60-90F, got: {temperature}"
+            )
+        return self._ws_write(coolingsp_write=temperature)
+
+    def set_heating_setpoint(self, temperature):
+        """Set the heating temperature setpoint.
+
+        Only effective when in Heat, Auto, or E-Heat mode.
+
+        Args:
+            temperature: Temperature in degrees Fahrenheit (40-80)
+        """
+        if not isinstance(temperature, (int, float)):
+            raise ValueError(
+                f"temperature must be numeric, got: {type(temperature).__name__}"
+            )
+        if temperature < 40 or temperature > 80:
+            raise ValueError(
+                f"heating temperature must be between 40-80F, got: {temperature}"
+            )
+        return self._ws_write(heatingsp_write=temperature)
+
+    def set_fan_mode(self, mode, intertimeon=None, intertimeoff=None):
+        """Set the fan mode.
+
+        Args:
+            mode: Integer 0-2 (Auto=0, Continuous=1, Intermittent=2)
+            intertimeon: Minutes on-time, required when mode=2
+            intertimeoff: Minutes off-time, required when mode=2
+        """
+        if isinstance(mode, bool) or not isinstance(mode, int) or mode < 0 or mode > 2:
+            raise ValueError(f"fan mode must be an integer 0-2, got: {mode}")
+        if mode == 2:
+            if intertimeon is None or intertimeoff is None:
+                raise ValueError(
+                    "intertimeon and intertimeoff are required for intermittent mode"
+                )
+            if not isinstance(intertimeon, int) or intertimeon <= 0:
+                raise ValueError(
+                    f"intertimeon must be a positive integer, got: {intertimeon}"
+                )
+            if not isinstance(intertimeoff, int) or intertimeoff <= 0:
+                raise ValueError(
+                    f"intertimeoff must be a positive integer, got: {intertimeoff}"
+                )
+            return self._ws_write(
+                fanmode_write=mode,
+                intertimeon_write=intertimeon,
+                intertimeoff_write=intertimeoff,
+            )
+        else:
+            if intertimeon is not None or intertimeoff is not None:
+                raise ValueError(
+                    "intertimeon and intertimeoff are only valid for intermittent mode"
+                )
+            return self._ws_write(fanmode_write=mode)
+
+    def set_humidity(self, humidity):
+        """Set the humidification target.
+
+        Reads current sensor values first to preserve existing
+        humidity_offset_settings and dehumidification setpoint.
+
+        Args:
+            humidity: Target humidity percentage (15-95)
+        """
+        if (
+            isinstance(humidity, bool)
+            or not isinstance(humidity, int)
+            or humidity < 15
+            or humidity > 95
+        ):
+            raise ValueError(
+                f"humidity must be an integer between 15-95, got: {humidity}"
+            )
+        reading = self.read()
+        return self._ws_write(
+            humidity_offset_settings=reading.raw_humidity_offset_settings,
+            dehumid_humid_sp={
+                "dehumidification": reading.tstatdehumidsetpoint,
+                "humidification": humidity,
+            },
+        )
 
     def get_energy_data(
         self, start_date, end_date, frequency="1H", timezone_str="America/New_York"
@@ -579,6 +729,9 @@ class WFReading(object):
 
         # Loop water flow rate (gallons per minute)
         self.waterflowrate = data.get("waterflowrate")
+
+        # raw humidity settings for write passthrough
+        self.raw_humidity_offset_settings = data.get("humidity_offset_settings", {})
 
         # active settings
         self.activesettings = ActiveSettings(data.get("activesettings"))

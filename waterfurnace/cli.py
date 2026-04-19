@@ -13,33 +13,113 @@ logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+COMMON_OPTIONS = [
+    click.option(
+        "-u",
+        "--username",
+        "user",
+        envvar="WF_USERNAME",
+        required=True,
+        help="Symphony username (or set WF_USERNAME env var)",
+    ),
+    click.option(
+        "-p",
+        "--password",
+        "passwd",
+        envvar="WF_PASSWORD",
+        prompt=True,
+        hide_input=True,
+        confirmation_prompt=False,
+        help="Symphony password (or set WF_PASSWORD env var)",
+    ),
+    click.option(
+        "--sessionid",
+        "sessionid",
+        envvar="WF_SESSIONID",
+        required=False,
+        help="Symphony session ID (or set WF_SESSIONID env var)",
+    ),
+    click.option(
+        "-D",
+        "--device",
+        "device",
+        required=False,
+        default=0,
+        show_default=True,
+        help="Select device in multi-device system (0,1,2...]",
+    ),
+    click.option(
+        "-l",
+        "--location",
+        "location",
+        required=False,
+        default=0,
+        show_default=True,
+        help="Select location in multi-location system (0,1,2...]",
+    ),
+    click.option(
+        "-v",
+        "--vendor",
+        "vendor",
+        required=False,
+        default="waterfurnace",
+        show_default=True,
+        type=click.Choice(["waterfurnace", "geostar"]),
+        help="Select vendor",
+    ),
+    click.option("-d", "--debug", "debug", required=False, is_flag=True),
+]
 
-@click.command()
-@click.option(
-    "-u",
-    "--username",
-    "user",
-    envvar="WF_USERNAME",
-    required=True,
-    help="Symphony username (or set WF_USERNAME env var)",
-)
-@click.option(
-    "-p",
-    "--password",
-    "passwd",
-    envvar="WF_PASSWORD",
-    prompt=True,
-    hide_input=True,
-    confirmation_prompt=False,
-    help="Symphony password (or set WF_PASSWORD env var)",
-)
-@click.option(
-    "--sessionid",
-    "sessionid",
-    envvar="WF_SESSIONID",
-    required=False,
-    help="Symphony session ID (or set WF_SESSIONID env var)",
-)
+
+def common_options(func):
+    for option in reversed(COMMON_OPTIONS):
+        func = option(func)
+    return func
+
+
+def get_client(user, passwd, sessionid, device, location, vendor, debug):
+    if debug:
+        logger.setLevel(logging.DEBUG)
+
+    if vendor == "geostar":
+        wf = waterfurnace.waterfurnace.GeoStar(
+            user, passwd, device=device, location=location, sessionid=sessionid
+        )
+    else:
+        wf = waterfurnace.waterfurnace.WaterFurnace(
+            user, passwd, device=device, location=location, sessionid=sessionid
+        )
+    wf.login()
+
+    click.echo("Login Succeeded: session_id = {}".format(wf.sessionid))
+
+    if wf.locations and location < len(wf.locations):
+        click.echo("Selected Location: {}".format(wf.locations[location].description))
+
+    if wf.devices and device < len(wf.devices):
+        click.echo("Selected Device: {}".format(wf.devices[device].description))
+
+    return wf
+
+
+@click.group()
+def main():
+    """WaterFurnace / GeoStar Symphony CLI.
+
+    Username and password are required for all subcommands.
+    They can be passed as options or set via environment variables.
+
+    \b
+    Environment variables:
+      WF_USERNAME   Symphony username
+      WF_PASSWORD   Symphony password
+      WF_SESSIONID  Existing session ID (optional)
+    """
+    pass
+
+
+@main.command("read")
+@common_options
 @click.option(
     "-s",
     "--sensors",
@@ -55,35 +135,6 @@ logger.setLevel(logging.INFO)
     is_flag=True,
     help="Read sensors every 15 seconds continuously",
 )
-@click.option(
-    "-D",
-    "--device",
-    "device",
-    required=False,
-    default=0,
-    show_default=True,
-    help="Select device in multi-device system (0,1,2...]",
-)
-@click.option(
-    "-l",
-    "--location",
-    "location",
-    required=False,
-    default=0,
-    show_default=True,
-    help="Select location in multi-location system (0,1,2...]",
-)
-@click.option(
-    "-v",
-    "--vendor",
-    "vendor",
-    required=False,
-    default="waterfurnace",
-    show_default=True,
-    type=click.Choice(["waterfurnace", "geostar"]),
-    help="Select vendor",
-)
-@click.option("-d", "--debug", "debug", required=False, is_flag=True)
 @click.option(
     "-e",
     "--energy",
@@ -120,7 +171,7 @@ logger.setLevel(logging.INFO)
     show_default=True,
     help="Timezone for energy data",
 )
-def main(
+def read_cmd(
     user,
     passwd,
     sessionid,
@@ -136,28 +187,9 @@ def main(
     frequency,
     timezone_str,
 ):
-
+    """Read sensor data or energy data from the unit."""
     click.echo("\nStep 1: Login")
-    if debug:
-        logger.setLevel(logging.DEBUG)
-
-    if vendor == "geostar":
-        wf = waterfurnace.waterfurnace.GeoStar(
-            user, passwd, device=device, location=location, sessionid=sessionid
-        )
-    else:
-        wf = waterfurnace.waterfurnace.WaterFurnace(
-            user, passwd, device=device, location=location, sessionid=sessionid
-        )
-    wf.login()
-
-    click.echo("Login Succeeded: session_id = {}".format(wf.sessionid))
-
-    if wf.locations and location < len(wf.locations):
-        click.echo("Selected Location: {}".format(wf.locations[location].description))
-
-    if wf.devices and device < len(wf.devices):
-        click.echo("Selected Device: {}".format(wf.devices[device].description))
+    wf = get_client(user, passwd, sessionid, device, location, vendor, debug)
 
     if energy:
         # Energy data mode
@@ -253,6 +285,58 @@ def main(
                 time.sleep(15)
             else:
                 break
+
+
+MODE_MAP = {
+    "off": 0,
+    "auto": 1,
+    "cool": 2,
+    "heat": 3,
+    "eheat": 4,
+}
+
+
+@main.command("set-mode")
+@common_options
+@click.argument("mode", type=click.Choice(list(MODE_MAP.keys())))
+def set_mode(user, passwd, sessionid, device, location, vendor, debug, mode):
+    """Set the thermostat mode (off, auto, cool, heat, eheat)."""
+    wf = get_client(user, passwd, sessionid, device, location, vendor, debug)
+    try:
+        wf.set_mode(MODE_MAP[mode])
+    except ValueError as e:
+        raise click.BadParameter(str(e))
+    click.echo(f"Mode set to {mode}")
+
+
+@main.command("set-cooling-temp")
+@common_options
+@click.argument("temperature", type=float)
+def set_cooling_temp(
+    user, passwd, sessionid, device, location, vendor, debug, temperature
+):
+    """Set the cooling temperature setpoint (60-90F)."""
+    wf = get_client(user, passwd, sessionid, device, location, vendor, debug)
+    try:
+        wf.set_cooling_setpoint(temperature)
+    except ValueError as e:
+        raise click.BadParameter(str(e))
+    click.echo(f"Cooling setpoint set to {temperature}F")
+
+
+@main.command("set-heating-temp")
+@common_options
+@click.argument("temperature", type=float)
+def set_heating_temp(
+    user, passwd, sessionid, device, location, vendor, debug, temperature
+):
+    """Set the heating temperature setpoint (40-80F)."""
+    wf = get_client(user, passwd, sessionid, device, location, vendor, debug)
+    try:
+        wf.set_heating_setpoint(temperature)
+    except ValueError as e:
+        raise click.BadParameter(str(e))
+    click.echo(f"Heating setpoint set to {temperature}F")
 
 
 if __name__ == "__main__":

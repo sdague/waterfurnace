@@ -164,6 +164,12 @@ def sample_reading_data():
         "homeautomationalarm1": 0,
         "homeautomationalarm2": 0,
         "roomtemp": 69,
+        "humidity_offset_settings": {
+            "humidity_offset": 0,
+            "humdity_control_option": 1,
+            "dehumidification_mode": 0,
+            "humidification_mode": 0,
+        },
         "activesettings": {
             "temporaryoverride": 0,
             "permanenthold": 0,
@@ -183,6 +189,24 @@ def sample_reading_data():
         "tstatheatingsetpoint": 69,
         "tstatcoolingsetpoint": 75,
         "awltstattype": 103,
+    }
+
+
+@pytest.fixture
+def sample_write_success():
+    """Sample successful write response."""
+    return {"rsp": "write", "awlid": "ABC123456", "tid": 2, "err": "", "data": "ok"}
+
+
+@pytest.fixture
+def sample_write_error():
+    """Sample error write response."""
+    return {
+        "rsp": "write",
+        "awlid": "ABC123456",
+        "tid": 2,
+        "err": "invalid parameter",
+        "data": "",
     }
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.0 (2026-04-19)
+
+This release adds experimental write controls to the waterfurnace system. As with everything, use at your own risk.
+
+* Add write control commands: `set_mode`, `set_cooling_setpoint`,
+  `set_heating_setpoint`, `set_fan_mode`, and `set_humidity`
+* Add `FAN_MODE` constant for fan mode labels (Auto, Continuous, Intermittent)
+* `set_humidity` reads current sensor state before writing to preserve
+  existing `humidity_offset_settings` and dehumidification setpoint
+* **Breaking:** CLI restructured from a single command to subcommands.
+  Existing read usage changes from `waterfurnace -u ...` to
+  `waterfurnace read -u ...`. New write subcommands: `set-mode`,
+  `set-cooling-temp`, `set-heating-temp`.
+
 ## 1.6.5 (2026-04-15)
 
 * Add support for `activesettings`, and `activemode` (thanks @masterkoppa)
