@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.1 (2026-04-19)
+
+* Fix one miss on click behavior tests
+
 ## 1.7.0 (2026-04-19)
 
 This release adds experimental write controls to the waterfurnace system. As with everything, use at your own risk.

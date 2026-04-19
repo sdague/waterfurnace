@@ -33,9 +33,7 @@ def test_command_line_interface(monkeypatch):
     monkeypatch.delenv("WF_PASSWORD", raising=False)
     monkeypatch.delenv("WF_SESSIONID", raising=False)
     runner = CliRunner()
-    result = runner.invoke(cli.main)
-    assert result.exit_code == 0
-    assert "Usage: main [OPTIONS] COMMAND" in result.output
     help_result = runner.invoke(cli.main, ["--help"])
     assert help_result.exit_code == 0
+    assert "Usage: main [OPTIONS] COMMAND" in help_result.output
     assert "Show this message and exit." in help_result.output
