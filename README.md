@@ -37,23 +37,79 @@ The software now supports a CLI.  For details, use `waterfurnace --help`
 
 ## CLI Usage
 
+The CLI uses subcommands. Common options (`-u`, `-p`, `-v`, etc.) go after the
+subcommand.
+
+### Reading sensor data
+
 ```bash
-# Basic usage
-waterfurnace -u user@example.com -p password
+# One-shot sensor reading (password prompted if not provided)
+waterfurnace read -u user@example.com -p password
+
+# Read specific sensors
+waterfurnace read -u user@example.com -p password -s enteringwatertemp,leavingairtemp
+
+# Read all available sensors
+waterfurnace read -u user@example.com -p password -s all
 
 # Continuous monitoring (reads every 15 seconds)
-waterfurnace -u user@example.com -p password --continuous
+waterfurnace read -u user@example.com -p password --continuous
+```
 
-# Get energy data
-waterfurnace -u user@example.com -p password --energy \
-  --start 2024-01-01 --end 2024-01-31 --freq 1H
+### Energy data
 
-# Use environment variable for password
+```bash
+# Get hourly energy data for a date range
+waterfurnace read -u user@example.com -p password --energy \
+  --start 2024-01-01 --end 2024-01-31
+
+# Daily energy data in a specific timezone
+waterfurnace read -u user@example.com -p password --energy \
+  --start 2024-01-01 --end 2024-01-31 --freq 1D --timezone America/Chicago
+
+# 15-minute resolution energy data
+waterfurnace read -u user@example.com -p password --energy \
+  --start 2024-01-01 --end 2024-01-07 --freq 15min
+```
+
+### Controlling the thermostat
+
+```bash
+# Set thermostat mode (off, auto, cool, heat, eheat)
+waterfurnace set-mode -u user@example.com -p password auto
+
+# Set cooling setpoint (60-90F)
+waterfurnace set-cooling-temp -u user@example.com -p password 74
+
+# Set heating setpoint (40-80F)
+waterfurnace set-heating-temp -u user@example.com -p password 68
+```
+
+### Multi-device and vendor options
+
+```bash
+# GeoStar systems (--vendor accepts "waterfurnace" or "geostar")
+waterfurnace read -u user@example.com -p password --vendor geostar
+
+# Select a specific device in a multi-device system (0-indexed)
+waterfurnace read -u user@example.com -p password -D 1
+
+# Select a specific location in a multi-location system (0-indexed)
+waterfurnace read -u user@example.com -p password -l 1
+```
+
+### Environment variables
+
+```bash
+# Set credentials via environment variables to avoid repeating them
+export WF_USERNAME=user@example.com
 export WF_PASSWORD=your_password
-waterfurnace -u user@example.com
 
-# GeoStar systems
-waterfurnace -u user@example.com -p password --vendor geostar
+waterfurnace read
+waterfurnace set-mode auto
+
+# Reuse an existing session ID
+export WF_SESSIONID=your_session_id
 ```
 
 ## Development
