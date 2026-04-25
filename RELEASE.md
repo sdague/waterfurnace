@@ -52,16 +52,10 @@ Follow [Semantic Versioning](https://semver.org/):
 For the GitHub Release to include proper release notes, format your [`CHANGELOG.md`](CHANGELOG.md) like this:
 
 ```markdown
-## [1.6.3] - 2024-03-14
+## 1.6.3 (2024-03-14)
 
-### Added
-- New feature description
-
-### Fixed
-- Bug fix description
-
-### Changed
-- Change description
+* New feature description
+* Bug fix description
 ```
 
 The release workflow will automatically extract the section for your version.
