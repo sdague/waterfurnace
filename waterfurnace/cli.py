@@ -118,7 +118,7 @@ def main():
     pass
 
 
-@main.command("read")
+@main.command("sensors")
 @common_options
 @click.option(
     "-s",
@@ -135,24 +135,54 @@ def main():
     is_flag=True,
     help="Read sensors every 15 seconds continuously",
 )
-@click.option(
-    "-e",
-    "--energy",
-    "energy",
-    required=False,
-    is_flag=True,
-    help="Get energy data instead of sensor readings",
-)
+def sensors_cmd(
+    user, passwd, sessionid, device, location, vendor, debug, sensors, continuous
+):
+    """Read live sensor data from the unit."""
+    click.echo("\nStep 1: Login")
+    wf = get_client(user, passwd, sessionid, device, location, vendor, debug)
+
+    while True:
+        dt = datetime.datetime.now()
+        now = dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        click.echo("")
+        click.echo("Attempting to read data {}".format(now))
+        data = wf.read()
+
+        if sensors is None:
+            click.echo(data)
+        else:
+            if sensors == "all":
+                attrs = dir(data)
+                sensorlist = []
+                for attr in attrs:
+                    if not attr.startswith("_"):
+                        sensorlist.append(attr)
+            else:
+                sensorlist = list(sensors.split(","))
+
+            for sensor in sensorlist:
+                click.echo("{} = {}".format(sensor, getattr(data, sensor)))
+
+        if continuous:
+            time.sleep(15)
+        else:
+            break
+
+
+@main.command("energy")
+@common_options
 @click.option(
     "--start",
     "start_date",
-    required=False,
+    required=True,
     help="Start date for energy data (YYYY-MM-DD)",
 )
 @click.option(
     "--end",
     "end_date",
-    required=False,
+    required=True,
     help="End date for energy data (YYYY-MM-DD)",
 )
 @click.option(
@@ -171,120 +201,74 @@ def main():
     show_default=True,
     help="Timezone for energy data",
 )
-def read_cmd(
+def energy_cmd(
     user,
     passwd,
     sessionid,
-    sensors,
-    continuous,
     device,
     location,
     vendor,
     debug,
-    energy,
     start_date,
     end_date,
     frequency,
     timezone_str,
 ):
-    """Read sensor data or energy data from the unit."""
+    """Get historical energy data from the unit."""
     click.echo("\nStep 1: Login")
     wf = get_client(user, passwd, sessionid, device, location, vendor, debug)
 
-    if energy:
-        # Energy data mode
-        if not start_date or not end_date:
-            click.echo("Error: --start and --end dates are required for energy data")
+    click.echo("\nStep 2: Get Energy Data")
+    click.echo(
+        "Start: {}, End: {}, Frequency: {}, Timezone: {}".format(
+            start_date, end_date, frequency, timezone_str
+        )
+    )
+
+    try:
+        energy_data = wf.get_energy_data(start_date, end_date, frequency, timezone_str)
+        click.echo("\nReceived {} energy readings".format(len(energy_data)))
+
+        if len(energy_data) == 0:
+            click.echo("No data available for the specified time range")
             return
 
-        click.echo("\nStep 2: Get Energy Data")
-        click.echo(
-            "Start: {}, End: {}, Frequency: {}, Timezone: {}".format(
-                start_date, end_date, frequency, timezone_str
-            )
-        )
+        click.echo("\nEnergy Data Summary:")
 
-        try:
-            energy_data = wf.get_energy_data(
-                start_date, end_date, frequency, timezone_str
-            )
-            click.echo("\nReceived {} energy readings".format(len(energy_data)))
+        def calc_stats(values):
+            filtered = [v for v in values if v is not None]
+            if not filtered:
+                return None, None, None, None
+            total = sum(filtered)
+            return (min(filtered), max(filtered), total / len(filtered), total)
 
-            if len(energy_data) == 0:
-                click.echo("No data available for the specified time range")
-                return
+        metrics = {
+            "Total Power": [r.total_power for r in energy_data],
+            "Total Heat 1": [r.total_heat_1 for r in energy_data],
+            "Total Heat 2": [r.total_heat_2 for r in energy_data],
+            "Total Cool 1": [r.total_cool_1 for r in energy_data],
+            "Total Cool 2": [r.total_cool_2 for r in energy_data],
+            "Total Electric Heat": [r.total_electric_heat for r in energy_data],
+            "Total Fan Only": [r.total_fan_only for r in energy_data],
+            "Total Loop Pump": [r.total_loop_pump for r in energy_data],
+            "Heat Runtime": [r.heat_runtime for r in energy_data],
+            "Cool Runtime": [r.cool_runtime for r in energy_data],
+        }
 
-            # Calculate summary statistics for key metrics
-            click.echo("\nEnergy Data Summary:")
+        for metric_name, values in metrics.items():
+            min_val, max_val, avg_val, total_val = calc_stats(values)
+            if min_val is not None:
+                click.echo("\n{}:".format(metric_name))
+                click.echo("   Min: {:.2f}".format(min_val))
+                click.echo("   Max: {:.2f}".format(max_val))
+                click.echo("   Avg: {:.2f}".format(avg_val))
+                click.echo("   Total: {:.2f}".format(total_val))
 
-            # Helper function to calculate stats
-            def calc_stats(values):
-                filtered = [v for v in values if v is not None]
-                if not filtered:
-                    return None, None, None, None
-                total = sum(filtered)
-                return (min(filtered), max(filtered), total / len(filtered), total)
-
-            # Collect values for each metric
-            metrics = {
-                "Total Power": [r.total_power for r in energy_data],
-                "Total Heat 1": [r.total_heat_1 for r in energy_data],
-                "Total Heat 2": [r.total_heat_2 for r in energy_data],
-                "Total Cool 1": [r.total_cool_1 for r in energy_data],
-                "Total Cool 2": [r.total_cool_2 for r in energy_data],
-                "Total Electric Heat": [r.total_electric_heat for r in energy_data],
-                "Total Fan Only": [r.total_fan_only for r in energy_data],
-                "Total Loop Pump": [r.total_loop_pump for r in energy_data],
-                "Heat Runtime": [r.heat_runtime for r in energy_data],
-                "Cool Runtime": [r.cool_runtime for r in energy_data],
-            }
-
-            # Display statistics for each metric
-            for metric_name, values in metrics.items():
-                min_val, max_val, avg_val, total_val = calc_stats(values)
-                if min_val is not None:
-                    click.echo("\n{}:".format(metric_name))
-                    click.echo("   Min: {:.2f}".format(min_val))
-                    click.echo("   Max: {:.2f}".format(max_val))
-                    click.echo("   Avg: {:.2f}".format(avg_val))
-                    click.echo("   Total: {:.2f}".format(total_val))
-
-        except waterfurnace.waterfurnace.WFNoDataError as e:
-            click.echo(f"No data available: {e}")
-        except Exception as e:
-            click.echo("Error getting energy data: {}".format(e))
-            raise
-
-    else:
-        # Normal sensor reading mode
-        while True:
-
-            dt = datetime.datetime.now()
-            now = dt.strftime("%Y-%m-%d %H:%M:%S")
-
-            click.echo("")
-            click.echo("Attempting to read data {}".format(now))
-            data = wf.read()
-
-            if sensors is None:
-                click.echo(data)
-            else:
-                if sensors == "all":
-                    attrs = dir(data)
-                    sensorlist = []
-                    for attr in attrs:
-                        if not attr.startswith("_"):
-                            sensorlist.append(attr)
-                else:
-                    sensorlist = list(sensors.split(","))
-
-                for sensor in sensorlist:
-                    click.echo("{} = {}".format(sensor, getattr(data, sensor)))
-
-            if continuous:
-                time.sleep(15)
-            else:
-                break
+    except waterfurnace.waterfurnace.WFNoDataError as e:
+        click.echo(f"No data available: {e}")
+    except Exception as e:
+        click.echo("Error getting energy data: {}".format(e))
+        raise
 
 
 MODE_MAP = {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0 (2026-04-25)
+
+* **Breaking:** `wf read` is replaced by two top-level commands: `wf sensors`
+  (live sensor readings) and `wf energy` (historical energy data). The `-e/--energy`
+  flag is removed. Use `wf sensors` for what was previously `wf read` and
+  `wf energy --start ... --end ...` for what was previously `wf read -e`.
+
 ## 1.7.1 (2026-04-19)
 
 * Fix one miss on click behavior tests
