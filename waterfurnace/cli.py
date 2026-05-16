@@ -154,10 +154,7 @@ def sensors_cmd(
         else:
             if sensors == "all":
                 attrs = dir(data)
-                sensorlist = []
-                for attr in attrs:
-                    if not attr.startswith("_"):
-                        sensorlist.append(attr)
+                sensorlist = [attr for attr in attrs if not attr.startswith("_")]
             else:
                 sensorlist = list(sensors.split(","))
 
@@ -219,7 +216,8 @@ def energy_cmd(
 
     click.echo("\nStep 2: Get Energy Data")
     click.echo(
-        f"Start: {start_date}, End: {end_date}, Frequency: {frequency}, Timezone: {timezone_str}"
+        f"Start: {start_date}, End: {end_date}, "
+        f"Frequency: {frequency}, Timezone: {timezone_str}"
     )
 
     try:
@@ -286,7 +284,7 @@ def set_mode(user, passwd, sessionid, device, location, vendor, debug, mode):
     try:
         wf.set_mode(MODE_MAP[mode])
     except ValueError as e:
-        raise click.BadParameter(str(e))
+        raise click.BadParameter(str(e)) from e
     click.echo(f"Mode set to {mode}")
 
 
@@ -301,7 +299,7 @@ def set_cooling_temp(
     try:
         wf.set_cooling_setpoint(temperature)
     except ValueError as e:
-        raise click.BadParameter(str(e))
+        raise click.BadParameter(str(e)) from e
     click.echo(f"Cooling setpoint set to {temperature}F")
 
 
@@ -316,7 +314,7 @@ def set_heating_temp(
     try:
         wf.set_heating_setpoint(temperature)
     except ValueError as e:
-        raise click.BadParameter(str(e))
+        raise click.BadParameter(str(e)) from e
     click.echo(f"Heating setpoint set to {temperature}F")
 
 
