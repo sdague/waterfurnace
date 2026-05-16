@@ -178,12 +178,14 @@ class SymphonyGeothermal:
         )
         try:
             res.json()["emailaddress"]
-        except KeyError:
-            _LOGGER.error("Existing session is not valid A lot of debug info coming...")
+        except KeyError as e:
+            _LOGGER.exception(
+                "Existing session is not valid A lot of debug info coming..."
+            )
             _LOGGER.debug("Response: %s", res)
             _LOGGER.debug("Response Cookies: %s", res.cookies)
             _LOGGER.debug("Response Content: %s", res.content)
-            raise WFCredentialError()
+            raise WFCredentialError() from e
 
     def _get_session_id(self):
         data = dict(
@@ -207,8 +209,8 @@ class SymphonyGeothermal:
         )
         try:
             self.sessionid = res.cookies["sessionid"]
-        except KeyError:
-            _LOGGER.error(
+        except KeyError as e:
+            _LOGGER.exception(
                 "Did not find expected session cookie, login failed."
                 " A lot of debug info coming..."
             )
@@ -219,9 +221,9 @@ class SymphonyGeothermal:
                 _LOGGER.error(
                     "Failed to log in, are you sure your user / password are correct"
                 )
-                raise WFCredentialError()
+                raise WFCredentialError() from e
             else:
-                raise WFError()
+                raise WFError() from e
 
     def _login_ws(self):
         # The following is needed to allow legacy negotiation because
@@ -257,10 +259,10 @@ class SymphonyGeothermal:
         if isinstance(self.location, int):
             try:
                 location = locations[self.location]
-            except Exception:
+            except Exception as e:
                 raise WFError(
                     "Location index out of range. Max index is %s", len(locations) - 1
-                )
+                ) from e
         elif isinstance(self.location, str):
             for index, location_data in enumerate(locations):
                 location_description = location_data.get("description")
@@ -283,10 +285,10 @@ class SymphonyGeothermal:
         if isinstance(self.device, int):
             try:
                 device = gateways[self.device]
-            except Exception:
+            except Exception as e:
                 raise WFError(
                     "Device index out of range. Max index is %s", len(gateways) - 1
-                )
+                ) from e
         elif isinstance(self.device, str):
             for index, gateway_data in enumerate(gateways):
                 gateway_gwid = gateway_data.get("gwid")
@@ -338,10 +340,11 @@ class SymphonyGeothermal:
         if isinstance(self.location, int):
             try:
                 target_location = self.locations[self.location]
-            except IndexError:
+            except IndexError as e:
                 raise WFError(
-                    f"Location index out of range. Max index is {len(self.locations) - 1}"
-                )
+                    f"Location index out of range. "
+                    f"Max index is {len(self.locations) - 1}"
+                ) from e
         else:
             raise WFError("Unknown location type")
 
@@ -393,15 +396,15 @@ class SymphonyGeothermal:
             return datadecoded
         except WFError:
             raise
-        except websocket.WebSocketConnectionClosedException:
+        except websocket.WebSocketConnectionClosedException as e:
             _LOGGER.exception("Websocket closed, probably from a timeout")
-            raise WFWebsocketClosedError()
-        except ValueError:
+            raise WFWebsocketClosedError() from e
+        except ValueError as e:
             _LOGGER.exception("Unable to decode data as json: %s", data)
-            raise WFWebsocketClosedError()
-        except Exception:
+            raise WFWebsocketClosedError() from e
+        except Exception as e:
             _LOGGER.exception("Unknown exception, socket probably failed")
-            raise WFWebsocketClosedError()
+            raise WFWebsocketClosedError() from e
         finally:
             timer.cancel()
 
@@ -415,15 +418,15 @@ class SymphonyGeothermal:
                 return WFReading(datadecoded)
             else:
                 raise WFError(datadecoded["err"])
-        except websocket.WebSocketConnectionClosedException:
+        except websocket.WebSocketConnectionClosedException as e:
             _LOGGER.exception("Websocket closed, probably from a timeout")
-            raise WFWebsocketClosedError()
-        except ValueError:
+            raise WFWebsocketClosedError() from e
+        except ValueError as e:
             _LOGGER.exception("Unable to decode data as json: %s", data)
-            raise WFWebsocketClosedError()
-        except Exception:
+            raise WFWebsocketClosedError() from e
+        except Exception as e:
             _LOGGER.exception("Unknown exception, socket probably failed")
-            raise WFWebsocketClosedError()
+            raise WFWebsocketClosedError() from e
 
     def read_with_retry(self):
         while self.fails <= self.max_fails:
@@ -615,14 +618,14 @@ class SymphonyGeothermal:
         except WFNoDataError:
             raise
         except requests.exceptions.HTTPError as e:
-            _LOGGER.error(f"HTTP error getting energy data: {e}")
-            raise WFError(f"Failed to get energy data: {e}")
+            _LOGGER.exception(f"HTTP error getting energy data: {e}")
+            raise WFError(f"Failed to get energy data: {e}") from e
         except requests.exceptions.RequestException as e:
-            _LOGGER.error(f"Request error getting energy data: {e}")
-            raise WFError(f"Failed to get energy data: {e}")
+            _LOGGER.exception(f"Request error getting energy data: {e}")
+            raise WFError(f"Failed to get energy data: {e}") from e
         except (ValueError, KeyError) as e:
-            _LOGGER.error(f"Error parsing energy data response: {e}")
-            raise WFError(f"Invalid energy data response: {e}")
+            _LOGGER.exception(f"Error parsing energy data response: {e}")
+            raise WFError(f"Invalid energy data response: {e}") from e
 
 
 class WaterFurnace(SymphonyGeothermal):
@@ -679,7 +682,10 @@ class ActiveSettings:
         return None
 
     def __repr__(self):
-        return f"<ActiveSettings mode={self.mode}, heatingsp={self.heatingsp_read}, coolingsp={self.coolingsp_read}>"
+        return (
+            f"<ActiveSettings mode={self.mode}, "
+            f"heatingsp={self.heatingsp_read}, coolingsp={self.coolingsp_read}>"
+        )
 
 
 class WFReading:
@@ -738,17 +744,11 @@ class WFReading:
 
     def __repr__(self):
         return (
-            "<FurnaceReading power=%d, mode=%s, activemode=%s, looptemp=%.1f, "
-            "airtemp=%.1f, roomtemp=%.1f, setpoint=%d>"
-            % (
-                self.totalunitpower,
-                self.mode,
-                self.activesettings.mode,
-                self.enteringwatertemp,
-                self.leavingairtemp,
-                self.tstatroomtemp,
-                self.tstatactivesetpoint,
-            )
+            f"<FurnaceReading power={self.totalunitpower:d}, mode={self.mode}, "
+            f"activemode={self.activesettings.mode}, "
+            f"looptemp={self.enteringwatertemp:.1f}, "
+            f"airtemp={self.leavingairtemp:.1f}, roomtemp={self.tstatroomtemp:.1f}, "
+            f"setpoint={self.tstatactivesetpoint:d}>"
         )
 
 
