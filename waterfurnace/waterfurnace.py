@@ -218,7 +218,7 @@ class SymphonyGeothermal:
             _LOGGER.debug("Response Cookies: %s", res.cookies)
             _LOGGER.debug("Response Content: %s", res.content)
             if FAILED_LOGIN in res.content:
-                _LOGGER.error(
+                _LOGGER.exception(
                     "Failed to log in, are you sure your user / password are correct"
                 )
                 raise WFCredentialError() from e
