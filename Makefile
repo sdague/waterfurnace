@@ -47,19 +47,18 @@ clean-test: ## remove test and coverage artifacts
 	rm -f .coverage
 	rm -fr htmlcov/
 
-lint: ## check style with black
-	black waterfurnace tests
+lint: ## lint and format with ruff
+	uv run ruff format waterfurnace tests
+	uv run ruff check waterfurnace tests
 
-test: ## run tests on all Python versions with tox
-	tox
+test: ## run tests with pytest
+	uv run pytest
 
-test-all: ## run tests on every Python version with tox
-	tox
+test-all: ## run tests with pytest
+	uv run pytest
 
 coverage: ## check code coverage quickly with the default Python
-	coverage run --source waterfurnace -m pytest
-	coverage report -m
-	coverage html
+	uv run pytest --cov=waterfurnace --cov-report=term-missing --cov-report=html
 	$(BROWSER) htmlcov/index.html
 
 docs: ## generate Sphinx HTML documentation, including API docs
@@ -109,5 +108,5 @@ dist: clean ## builds source and wheel package
 	python -m build
 	ls -l dist
 
-install: clean ## install the package to the active Python's site-packages
-	pip install -e .
+install: clean ## install the package and dev dependencies with uv
+	uv sync --extra dev
