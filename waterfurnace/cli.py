@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
-
 """Console script for waterfurnace."""
 
-import click
+import datetime
 import logging
 import time
-import datetime
+
+import click
 
 import waterfurnace.waterfurnace
 
@@ -91,13 +90,13 @@ def get_client(user, passwd, sessionid, device, location, vendor, debug):
         )
     wf.login()
 
-    click.echo("Login Succeeded: session_id = {}".format(wf.sessionid))
+    click.echo(f"Login Succeeded: session_id = {wf.sessionid}")
 
     if wf.locations and location < len(wf.locations):
-        click.echo("Selected Location: {}".format(wf.locations[location].description))
+        click.echo(f"Selected Location: {wf.locations[location].description}")
 
     if wf.devices and device < len(wf.devices):
-        click.echo("Selected Device: {}".format(wf.devices[device].description))
+        click.echo(f"Selected Device: {wf.devices[device].description}")
 
     return wf
 
@@ -147,7 +146,7 @@ def sensors_cmd(
         now = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         click.echo("")
-        click.echo("Attempting to read data {}".format(now))
+        click.echo(f"Attempting to read data {now}")
         data = wf.read()
 
         if sensors is None:
@@ -163,7 +162,7 @@ def sensors_cmd(
                 sensorlist = list(sensors.split(","))
 
             for sensor in sensorlist:
-                click.echo("{} = {}".format(sensor, getattr(data, sensor)))
+                click.echo(f"{sensor} = {getattr(data, sensor)}")
 
         if continuous:
             time.sleep(15)
@@ -220,14 +219,12 @@ def energy_cmd(
 
     click.echo("\nStep 2: Get Energy Data")
     click.echo(
-        "Start: {}, End: {}, Frequency: {}, Timezone: {}".format(
-            start_date, end_date, frequency, timezone_str
-        )
+        f"Start: {start_date}, End: {end_date}, Frequency: {frequency}, Timezone: {timezone_str}"
     )
 
     try:
         energy_data = wf.get_energy_data(start_date, end_date, frequency, timezone_str)
-        click.echo("\nReceived {} energy readings".format(len(energy_data)))
+        click.echo(f"\nReceived {len(energy_data)} energy readings")
 
         if len(energy_data) == 0:
             click.echo("No data available for the specified time range")
@@ -258,16 +255,16 @@ def energy_cmd(
         for metric_name, values in metrics.items():
             min_val, max_val, avg_val, total_val = calc_stats(values)
             if min_val is not None:
-                click.echo("\n{}:".format(metric_name))
-                click.echo("   Min: {:.2f}".format(min_val))
-                click.echo("   Max: {:.2f}".format(max_val))
-                click.echo("   Avg: {:.2f}".format(avg_val))
-                click.echo("   Total: {:.2f}".format(total_val))
+                click.echo(f"\n{metric_name}:")
+                click.echo(f"   Min: {min_val:.2f}")
+                click.echo(f"   Max: {max_val:.2f}")
+                click.echo(f"   Avg: {avg_val:.2f}")
+                click.echo(f"   Total: {total_val:.2f}")
 
     except waterfurnace.waterfurnace.WFNoDataError as e:
         click.echo(f"No data available: {e}")
     except Exception as e:
-        click.echo("Error getting energy data: {}".format(e))
+        click.echo(f"Error getting energy data: {e}")
         raise
 
 

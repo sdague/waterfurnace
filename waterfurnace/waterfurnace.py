@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Main module."""
 
 import copy
@@ -125,7 +123,7 @@ class WFNoDataError(WFException):
     pass
 
 
-class SymphonyGeothermal(object):
+class SymphonyGeothermal:
     def __init__(
         self,
         base_url,
@@ -181,9 +179,7 @@ class SymphonyGeothermal(object):
         try:
             res.json()["emailaddress"]
         except KeyError:
-            _LOGGER.error(
-                "Existing session is not valid" " A lot of debug info coming..."
-            )
+            _LOGGER.error("Existing session is not valid A lot of debug info coming...")
             _LOGGER.debug("Response: %s", res)
             _LOGGER.debug("Response Cookies: %s", res.cookies)
             _LOGGER.debug("Response Content: %s", res.content)
@@ -686,7 +682,7 @@ class ActiveSettings:
         return f"<ActiveSettings mode={self.mode}, heatingsp={self.heatingsp_read}, coolingsp={self.coolingsp_read}>"
 
 
-class WFReading(object):
+class WFReading:
     def __init__(self, data=None):
         if data is None:
             data = {}
@@ -756,7 +752,7 @@ class WFReading(object):
         )
 
 
-class WFEnergyReading(object):
+class WFEnergyReading:
     """Represents a single energy data reading for a specific time period."""
 
     def __init__(self, timestamp_ms, values, columns):
@@ -825,7 +821,7 @@ class WFEnergyReading(object):
         return f"<WFEnergyReading timestamp={self.timestamp}, power={self.total_power}>"
 
 
-class WFEnergyData(object):
+class WFEnergyData:
     """Container for energy data with multiple readings."""
 
     def __init__(self, data=None):
@@ -861,8 +857,7 @@ class WFEnergyData(object):
 
     def __repr__(self):
         return (
-            f"<WFEnergyData records={len(self.readings)}, "
-            f"columns={len(self.columns)}>"
+            f"<WFEnergyData records={len(self.readings)}, columns={len(self.columns)}>"
         )
 
 

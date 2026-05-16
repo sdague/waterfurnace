@@ -2,11 +2,11 @@
 
 """Tests for `waterfurnace` package."""
 
-import logging
 import json
-from unittest import mock
-import unittest
+import logging
 import time
+import unittest
+from unittest import mock
 
 import pytest
 import websocket
@@ -22,7 +22,7 @@ FAKE_RESPONSE = {"err": "", "locations": [{"gateways": [{"gwid": "123456"}]}]}
 FAKE_CONTENT = json.dumps(FAKE_RESPONSE)
 
 
-class FakeWebsocket(object):
+class FakeWebsocket:
     stopped = False
     logged_in = False
 
@@ -43,7 +43,7 @@ class FakeWebsocket(object):
         self.stopped = True
 
 
-class FakeRequest(object):
+class FakeRequest:
     def __init__(self, status_code=200, content="", cookies=None):
         self.status_code = status_code
         self.content = content
@@ -54,7 +54,6 @@ class FakeRequest(object):
 
 
 class TestTimeout(unittest.TestCase):
-
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")
     def test_increment_read_data(self, mock_req, mock_ws_create):
