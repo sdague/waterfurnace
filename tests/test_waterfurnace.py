@@ -1,10 +1,8 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """Tests for `waterfurnace` package."""
 
 import pytest
-
 from click.testing import CliRunner
 
 from waterfurnace import cli

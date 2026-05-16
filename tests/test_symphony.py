@@ -3,8 +3,8 @@
 """Tests for `waterfurnace` package."""
 
 import json
-from unittest import mock
 import unittest
+from unittest import mock
 
 import pytest
 
@@ -20,7 +20,7 @@ FAKE_RESPONSE = {
 FAKE_CONTENT = json.dumps(FAKE_RESPONSE)
 
 
-class FakeRequest(object):
+class FakeRequest:
     def __init__(self, status_code=200, content="", cookies=None):
         self.status_code = status_code
         self.content = content
@@ -31,7 +31,6 @@ class FakeRequest(object):
 
 
 class TestSymphony(unittest.TestCase):
-
     @mock.patch("requests.post")
     def test_unknown_failure(self, mock_req):
         mock_req.return_value = FakeRequest(content="Error")
@@ -130,7 +129,6 @@ class TestSymphony(unittest.TestCase):
 
 
 class TestReadData(unittest.TestCase):
-
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")
     def test_increment_read_data(self, mock_req, mock_ws_create):
@@ -250,7 +248,6 @@ class TestReadData(unittest.TestCase):
 
 
 class TestEnergyData(unittest.TestCase):
-
     def test_energy_reading_hourly_data(self):
         """Test WFEnergyReading with hourly/15min frequency data."""
         columns = [

@@ -19,7 +19,6 @@ tests/
   test_waterfurnace.py  # CLI tests
   test_timeout.py   # timeout/reconnect behavior
 pyproject.toml      # version, dependencies, build config
-tox.ini             # test environments (py310–py314, lint)
 Makefile            # convenience targets
 ```
 
@@ -28,28 +27,29 @@ Makefile            # convenience targets
 Before every commit, run tests and linting and confirm both pass:
 
 ```bash
-pytest
-black --check --target-version py313 waterfurnace tests
+uv run pytest
+uv run ruff check waterfurnace tests
+uv run ruff format --check waterfurnace tests
 ```
 
 ## Install for development
 
 ```bash
-pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 ## Run tests
 
 ```bash
-pytest                  # single Python version
-tox                     # all supported versions + lint (py310–py314)
+uv run pytest                  # tests with current Python version
 ```
 
 ## Lint / formatting
 
 ```bash
-black --check --target-version py313 waterfurnace tests   # check
-black --target-version py313 waterfurnace tests           # fix
+uv run ruff check waterfurnace tests                # lint check
+uv run ruff format --check waterfurnace tests       # format check
+uv run ruff format waterfurnace tests               # format fix
 ```
 
 ## Release

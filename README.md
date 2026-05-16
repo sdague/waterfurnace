@@ -121,30 +121,25 @@ export WF_SESSIONID=your_session_id
 git clone https://github.com/sdague/waterfurnace.git
 cd waterfurnace
 
-# Install in development mode with all dependencies
-pip install -e ".[dev]"
+# Install all dependencies (creates .venv automatically)
+uv sync --extra dev
 
 # Run tests
-pytest
+uv run pytest
 
 # Run tests with coverage
-pytest --cov=waterfurnace --cov-report=term-missing
+uv run pytest --cov=waterfurnace --cov-report=term-missing
 
-# Format code
-black waterfurnace tests
-
-# Run all tests across Python versions
-tox
+# Format and lint code
+uv run ruff format waterfurnace tests
+uv run ruff check waterfurnace tests
 ```
 
 ### Building and Publishing
 
 ```bash
 # Build package
-python -m build
-
-# Check package
-twine check dist/*
+uv build
 ```
 
 ## Known Issues / Limitations

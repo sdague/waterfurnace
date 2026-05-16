@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Top-level package for waterfurnace."""
 
 import importlib.metadata
