@@ -34,7 +34,7 @@ class FakeWebsocket:
             self.logged_in = True
             return FAKE_CONTENT
 
-        for i in range(10):
+        for _ in range(10):
             if self.stopped:
                 raise websocket.WebSocketConnectionClosedException()
             time.sleep(1)

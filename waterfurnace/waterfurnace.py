@@ -437,7 +437,7 @@ class SymphonyGeothermal:
                 data = self.read()
                 self.fails = 0
                 return data
-            except requests.exceptions.RequestException:
+            except requests.exceptions.RequestException:  # noqa: PERF203
                 self.fails = self.fails + 1
                 _LOGGER.exception("relogin failed, trying again")
                 time.sleep(self.fails * ERROR_INTERVAL)
