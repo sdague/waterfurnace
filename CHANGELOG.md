@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Replaced `black` with `ruff` for formatting and linting (rules: B, UP, I, E, W, F, PERF)
+- Replaced `pip`/`tox` with `uv` for local development workflow
+- Removed `tox.ini`, `requirements_dev.txt`, `setup.cfg`
+- Updated GitHub Actions CI to use `astral-sh/setup-uv`
+
 ## [1.8.0] - 2026-04-25
 
 * **Breaking:** `wf read` is replaced by two top-level commands: `wf sensors`
