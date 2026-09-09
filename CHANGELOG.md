@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `scripts/check_legacy_ssl.py` (and `make check-legacy-ssl`): a standalone,
+  dependency-free script to check whether WaterFurnace/GeoStar's websocket
+  backend still requires the legacy TLS renegotiation workaround in
+  `_login_ws()`, so we can tell when it's safe to remove.
+
 ## [1.9.0] - 2026-09-09
 
 ### Fixed

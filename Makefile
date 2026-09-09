@@ -48,14 +48,17 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr htmlcov/
 
 lint: ## lint and format with ruff
-	uv run ruff format waterfurnace tests
-	uv run ruff check waterfurnace tests
+	uv run ruff format waterfurnace tests scripts
+	uv run ruff check waterfurnace tests scripts
 
 test: ## run tests with pytest
 	uv run pytest
 
 test-all: ## run tests with pytest
 	uv run pytest
+
+check-legacy-ssl: ## check if WaterFurnace/GeoStar still require the legacy TLS workaround
+	python3 scripts/check_legacy_ssl.py
 
 coverage: ## check code coverage quickly with the default Python
 	uv run pytest --cov=waterfurnace --cov-report=term-missing --cov-report=html
