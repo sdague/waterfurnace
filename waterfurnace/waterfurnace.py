@@ -607,11 +607,21 @@ class SymphonyGeothermal:
         if frequency not in valid_frequencies:
             raise ValueError(f"Invalid frequency. Must be one of {valid_frequencies}")
 
+        # The API takes a number of periods counting forward from start,
+        # rather than an end date, so convert the date range to a count.
+        seconds_per_period = {"1D": 86400, "1H": 3600, "15min": 900}
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        periods = (
+            int((end_dt - start_dt).total_seconds() // seconds_per_period[frequency])
+            + 1
+        )
+
         # Build the API URL
         url = (
-            f"{self.base_url}/api.php/v2/gateway/{self.gwid}/energy"
-            f"?freq={frequency}&start={start_date}"
-            f"&timezone={timezone_str}&end={end_date}"
+            f"{self.base_url}/api/v2/gateway/{self.gwid}/energy"
+            f"?awluserkey={self.account_id}&freq={frequency}&start={start_date}"
+            f"&timezone={timezone_str}&periods={periods}"
         )
 
         headers = {

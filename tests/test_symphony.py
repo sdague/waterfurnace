@@ -483,8 +483,9 @@ class TestEnergyData(unittest.TestCase):
         call_args = mock_get.call_args
         assert "freq=1H" in call_args[0][0]
         assert "start=2026-01-03" in call_args[0][0]
-        assert "end=2026-01-04" in call_args[0][0]
+        assert "periods=25" in call_args[0][0]
         assert "timezone=America/New_York" in call_args[0][0]
+        assert f"awluserkey={FAKE_RESPONSE['key']}" in call_args[0][0]
         assert call_args[1]["cookies"]["sessionid"] == "test_session_id"
 
         # Verify the returned data

@@ -7,6 +7,10 @@
   server added this protection, which caused every login attempt (and thus
   `wf sensors`, `wf read`, etc.) to fail with a session cookie error even
   with correct credentials.
+- `wf energy` now uses the current `/api/v2/gateway/{gwid}/energy` endpoint
+  with the `awluserkey`/`periods` parameters the server now expects, instead
+  of the removed `/api.php/v2/...` route with `end`, which always 404'd.
+  The public `get_energy_data()` signature and return type are unchanged.
 
 ### Changed
 - Replaced `black` with `ruff` for formatting and linting (rules: B, UP, I, E, W, F, PERF)
