@@ -43,20 +43,29 @@ class FakeWebsocket:
         self.stopped = True
 
 
+LOGIN_PAGE = '<input name="_token" value="fake-csrf-token" />'
+
+
 class FakeRequest:
-    def __init__(self, status_code=200, content="", cookies=None):
+    def __init__(self, status_code=200, content="", cookies=None, text=LOGIN_PAGE):
         self.status_code = status_code
         self.content = content
+        self.text = text
         if cookies is None:
             self.cookies = {}
         else:
             self.cookies = cookies
 
+    def raise_for_status(self):
+        pass
+
 
 class TestTimeout(unittest.TestCase):
     @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
     @mock.patch("requests.post")
-    def test_increment_read_data(self, mock_req, mock_ws_create):
+    def test_increment_read_data(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
         mock_req.return_value = FakeRequest(
             cookies={"sessionid": str(mock.sentinel.sessionid)}
         )

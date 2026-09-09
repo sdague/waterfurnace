@@ -12,13 +12,24 @@ from waterfurnace import waterfurnace as wf
 # ============================================================================
 
 
+LOGIN_PAGE_HTML = '<input name="_token" value="fake-csrf-token" />'
+
+
 class MockResponse:
     """Mock HTTP response object."""
 
-    def __init__(self, status_code=200, content="", cookies=None, json_data=None):
+    def __init__(
+        self,
+        status_code=200,
+        content="",
+        cookies=None,
+        json_data=None,
+        text=LOGIN_PAGE_HTML,
+    ):
         self.status_code = status_code
         self.content = content if isinstance(content, bytes) else content.encode()
         self.cookies = cookies or {}
+        self.text = text
         self._json_data = json_data
 
     def json(self):
@@ -419,8 +430,12 @@ def mock_session_id():
 
 @pytest.fixture
 def mock_requests_post(mock_session_id):
-    """Mock requests.post for login."""
-    with mock.patch("requests.post") as mock_post:
+    """Mock requests.get/post for login."""
+    with (
+        mock.patch("requests.get") as mock_get,
+        mock.patch("requests.post") as mock_post,
+    ):
+        mock_get.return_value = MockResponse()
         mock_post.return_value = MockResponse(cookies={"sessionid": mock_session_id})
         yield mock_post
 

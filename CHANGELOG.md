@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- Login now handles the CSRF token required by the Symphony login form. The
+  server added this protection, which caused every login attempt (and thus
+  `wf sensors`, `wf read`, etc.) to fail with a session cookie error even
+  with correct credentials.
+
 ### Changed
 - Replaced `black` with `ruff` for formatting and linting (rules: B, UP, I, E, W, F, PERF)
 - Replaced `pip`/`tox` with `uv` for local development workflow

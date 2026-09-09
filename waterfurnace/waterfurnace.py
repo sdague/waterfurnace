@@ -3,6 +3,7 @@
 import copy
 import json
 import logging
+import re
 import ssl
 import threading
 import time
@@ -188,22 +189,46 @@ class SymphonyGeothermal:
             raise WFCredentialError() from e
 
     def _get_session_id(self):
-        data = dict(
-            emailaddress=self.user, password=self.passwd, op="login", redirect="/"
-        )
         headers = {
             "user-agent": USER_AGENT,
         }
+        cookies = {
+            "legal-acknowledge": "yes",
+            "energy-base-price": "0.15",
+            "temp_unit": "f",
+        }
+
+        # The login form is now protected by a Laravel CSRF token, so we
+        # have to load the login page first to obtain it.
+        login_page = requests.get(
+            self.login_url,
+            headers=headers,
+            cookies=cookies,
+            timeout=TIMEOUT,
+        )
+        login_page.raise_for_status()
+        match = re.search(
+            r'<input[^>]*name="_token"[^>]*value="([^"]+)"', login_page.text
+        ) or re.search(r'<input[^>]*value="([^"]+)"[^>]*name="_token"', login_page.text)
+        if not match:
+            _LOGGER.debug("Login page content: %s", login_page.text)
+            raise WFError("Unable to find CSRF token on login page")
+        token = match.group(1)
+        cookies.update(dict(login_page.cookies))
+
+        data = dict(
+            emailaddress=self.user,
+            password=self.passwd,
+            op="login",
+            redirect="/",
+            _token=token,
+        )
 
         res = requests.post(
             self.login_url,
             data=data,
             headers=headers,
-            cookies={
-                "legal-acknowledge": "yes",
-                "energy-base-price": "0.15",
-                "temp_unit": "f",
-            },
+            cookies=cookies,
             timeout=TIMEOUT,
             allow_redirects=False,
         )
