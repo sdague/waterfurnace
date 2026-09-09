@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.0] - 2026-09-09
 
 ### Fixed
 - Login now handles the CSRF token required by the Symphony login form. The
