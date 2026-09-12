@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.1] - 2026-09-12
 
 ### Fixed
 - Reusing a stored `sessionid` (session reuse across reconnects, as done by
