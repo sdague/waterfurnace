@@ -274,13 +274,18 @@ class SymphonyGeothermal:
         # TODO(sdague): we should probably check the response, but
         # it's not clear anything is useful in it.
         recv = self.ws.recv()
-        data = json.loads(recv)
-        _LOGGER.debug("Login response: %s", data)
+        try:
+            data = json.loads(recv)
+            _LOGGER.debug("Login response: %s", data)
 
-        if "key" in data:
-            self.account_id = data["key"]
+            if "key" in data:
+                self.account_id = data["key"]
 
-        locations = data["locations"]
+            locations = data["locations"]
+        except (ValueError, KeyError) as e:
+            _LOGGER.exception("Unable to decode websocket login response: %s", recv)
+            raise WFWebsocketClosedError() from e
+
         self._location_data = locations
         location = None
 
@@ -307,7 +312,13 @@ class SymphonyGeothermal:
                 self.location,
             )
 
-        gateways = location["gateways"]
+        try:
+            gateways = location["gateways"]
+        except KeyError as e:
+            _LOGGER.exception(
+                "Location missing expected 'gateways' field: %s", location
+            )
+            raise WFWebsocketClosedError() from e
         device = None
 
         if isinstance(self.device, int):

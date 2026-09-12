@@ -199,6 +199,54 @@ class TestSymphony(unittest.TestCase):
         assert m_ws.method_calls[1] == mock.call.recv()
 
     @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_ws_non_json_response(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = "not json"
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        with pytest.raises(wf.WFWebsocketClosedError):
+            w.login()
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_ws_missing_locations(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps({"err": "something went wrong"})
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        with pytest.raises(wf.WFWebsocketClosedError):
+            w.login()
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_ws_missing_gateways(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps({"key": 1234, "locations": [{}]})
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        with pytest.raises(wf.WFWebsocketClosedError):
+            w.login()
+
+    @mock.patch("websocket.create_connection")
     @mock.patch("websocket.recv")
     @mock.patch("requests.get")
     @mock.patch("requests.post")

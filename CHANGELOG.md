@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- `_login_ws()` no longer crashes uncaught if the websocket login response
+  is malformed (non-JSON) or missing the expected `locations`/`gateways`
+  fields (e.g. an error response in place of the normal login payload).
+  These now raise `WFWebsocketClosedError`, consistent with how `read()`
+  and `_ws_write()` already handle bad websocket data, so
+  `read_with_retry()`'s existing retry logic picks them up cleanly.
+
 ## [1.9.1] - 2026-09-12
 
 ### Fixed
