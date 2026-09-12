@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 import pytest
+import requests
 
 from waterfurnace import waterfurnace as wf
 
@@ -24,10 +25,18 @@ LOGIN_PAGE = '<input name="_token" value="fake-csrf-token" />'
 
 
 class FakeRequest:
-    def __init__(self, status_code=200, content="", cookies=None, text=LOGIN_PAGE):
+    def __init__(
+        self,
+        status_code=200,
+        content="",
+        cookies=None,
+        text=LOGIN_PAGE,
+        json_data=None,
+    ):
         self.status_code = status_code
         self.content = content
         self.text = text
+        self._json_data = json_data
         if cookies is None:
             self.cookies = {}
         else:
@@ -35,6 +44,11 @@ class FakeRequest:
 
     def raise_for_status(self):
         pass
+
+    def json(self):
+        if self._json_data is None:
+            raise requests.exceptions.JSONDecodeError("Expecting value", "", 0)
+        return self._json_data
 
 
 class TestSymphony(unittest.TestCase):
@@ -99,6 +113,63 @@ class TestSymphony(unittest.TestCase):
         with pytest.raises(wf.WFError):
             w._get_session_id()
         mock_req.assert_not_called()
+
+    @mock.patch("requests.get")
+    def test_check_session_id_success(self, mock_get):
+        mock_get.return_value = FakeRequest(json_data={"emailaddress": "a@example.com"})
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        w.sessionid = "existing-session"
+        w._check_session_id()
+
+        get_args, get_kwargs = mock_get.call_args
+        assert get_args[0] == f"{w.base_url}/user"
+        assert get_kwargs["cookies"]["sessionid"] == "existing-session"
+
+    @mock.patch("requests.get")
+    def test_check_session_id_missing_field(self, mock_get):
+        # Server returns valid JSON, but not the shape we expect.
+        mock_get.return_value = FakeRequest(json_data={"err": "Not found."})
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        w.sessionid = "existing-session"
+        with pytest.raises(wf.WFCredentialError):
+            w._check_session_id()
+
+    @mock.patch("requests.get")
+    def test_check_session_id_non_json_response(self, mock_get):
+        # The old /api.php/user route now 404s with an HTML page instead of
+        # JSON; this simulates hitting a route that no longer returns JSON,
+        # regardless of which URL is actually in use.
+        mock_get.return_value = FakeRequest(content="<html>404</html>")
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        w.sessionid = "existing-session"
+        with pytest.raises(wf.WFCredentialError):
+            w._check_session_id()
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_falls_back_when_session_check_returns_non_json(
+        self, mock_req, mock_get, mock_ws_create
+    ):
+        # requests.get is used both for the (failing) session check and,
+        # via the _get_session_id fallback, to load the login page for its
+        # CSRF token, so it needs to behave differently across the two
+        # calls it's about to receive.
+        mock_get.side_effect = [
+            FakeRequest(content="<html>404</html>"),
+            FakeRequest(),
+        ]
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.new_sessionid)}
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        w.sessionid = "stale-session"
+        w.login()
+        assert w.sessionid == str(mock.sentinel.new_sessionid)
 
     @mock.patch("websocket.create_connection")
     @mock.patch("websocket.recv")

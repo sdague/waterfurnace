@@ -168,7 +168,7 @@ class SymphonyGeothermal:
             "user-agent": USER_AGENT,
         }
         res = requests.get(
-            f"{self.base_url}/api.php/user",
+            f"{self.base_url}/user",
             headers=headers,
             cookies={
                 "legal-acknowledge": "yes",
@@ -179,7 +179,10 @@ class SymphonyGeothermal:
         )
         try:
             res.json()["emailaddress"]
-        except KeyError as e:
+        except (KeyError, ValueError) as e:
+            # ValueError covers requests' JSONDecodeError, raised when the
+            # server returns a non-JSON body (e.g. an HTML 404 page) instead
+            # of the expected user payload.
             _LOGGER.exception(
                 "Existing session is not valid A lot of debug info coming..."
             )

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Fixed
+- Reusing a stored `sessionid` (session reuse across reconnects, as done by
+  long-running consumers like Home Assistant) no longer crashes with an
+  uncaught `requests.exceptions.JSONDecodeError`. `_check_session_id()` now
+  uses the current `/user` endpoint (the old `/api.php/user` route now
+  404s with an HTML page) and also treats any non-JSON or malformed
+  response the same as an invalid session, falling back to a fresh login as
+  it already did for other failure shapes.
+
 ### Added
 - `scripts/check_legacy_ssl.py` (and `make check-legacy-ssl`): a standalone,
   dependency-free script to check whether WaterFurnace/GeoStar's websocket
