@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.2] - 2026-09-12
 
 ### Fixed
 - `_login_ws()` no longer crashes uncaught if the websocket login response
