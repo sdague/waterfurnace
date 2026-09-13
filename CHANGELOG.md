@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.3] - 2026-09-13
 
 ### Changed
 - Refactored the duplicated location/device selector logic in `_login_ws()`
