@@ -113,7 +113,7 @@ class TestSetCoolingSetpoint:
         assert sent["coolingsp_write"] == 72.5
 
     def test_invalid_type(self, mock_waterfurnace_client):
-        with pytest.raises(ValueError, match="temperature must be numeric"):
+        with pytest.raises(ValueError, match="cooling setpoint must be numeric"):
             mock_waterfurnace_client.set_cooling_setpoint("73")
 
     @pytest.mark.parametrize("temp", [60, 90])
@@ -129,8 +129,14 @@ class TestSetCoolingSetpoint:
 
     @pytest.mark.parametrize("temp", [59, 91])
     def test_out_of_range(self, mock_waterfurnace_client, temp):
-        with pytest.raises(ValueError, match="cooling temperature must be between"):
+        with pytest.raises(
+            ValueError, match="cooling setpoint must be numeric between"
+        ):
             mock_waterfurnace_client.set_cooling_setpoint(temp)
+
+    def test_rejects_bool(self, mock_waterfurnace_client):
+        with pytest.raises(ValueError, match="cooling setpoint must be numeric"):
+            mock_waterfurnace_client.set_cooling_setpoint(True)
 
 
 class TestSetHeatingSetpoint:
@@ -154,7 +160,7 @@ class TestSetHeatingSetpoint:
         assert sent["heatingsp_write"] == 67.5
 
     def test_invalid_type(self, mock_waterfurnace_client):
-        with pytest.raises(ValueError, match="temperature must be numeric"):
+        with pytest.raises(ValueError, match="heating setpoint must be numeric"):
             mock_waterfurnace_client.set_heating_setpoint("67")
 
     @pytest.mark.parametrize("temp", [40, 80])
@@ -170,8 +176,14 @@ class TestSetHeatingSetpoint:
 
     @pytest.mark.parametrize("temp", [39, 81])
     def test_out_of_range(self, mock_waterfurnace_client, temp):
-        with pytest.raises(ValueError, match="heating temperature must be between"):
+        with pytest.raises(
+            ValueError, match="heating setpoint must be numeric between"
+        ):
             mock_waterfurnace_client.set_heating_setpoint(temp)
+
+    def test_rejects_bool(self, mock_waterfurnace_client):
+        with pytest.raises(ValueError, match="heating setpoint must be numeric"):
+            mock_waterfurnace_client.set_heating_setpoint(True)
 
 
 class TestSetFanMode:

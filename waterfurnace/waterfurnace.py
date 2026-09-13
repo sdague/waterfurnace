@@ -57,6 +57,18 @@ FAILED_LOGIN = (
 TIMEOUT = 30
 ERROR_INTERVAL = 300
 
+# Range specs for the scalar arguments accepted by the set_* write methods.
+# "type" is always a tuple of the exact types accepted; bool is deliberately
+# never included, since bool is a subclass of int and would otherwise pass
+# an int-only check as if True/False were 1/0.
+WRITE_FIELD_SPECS = {
+    "mode": {"min": 0, "max": 4, "type": (int,)},
+    "cooling_setpoint": {"min": 60, "max": 90, "type": (int, float)},
+    "heating_setpoint": {"min": 40, "max": 80, "type": (int, float)},
+    "fan_mode": {"min": 0, "max": 2, "type": (int,)},
+    "humidity": {"min": 15, "max": 95, "type": (int,)},
+}
+
 DATA_REQUEST = {
     "cmd": "read",
     "tid": None,
@@ -483,14 +495,29 @@ class SymphonyGeothermal:
                 time.sleep(self.fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError("Failed to refresh credentials after retries")
 
+    @staticmethod
+    def _validate(field, value):
+        """Validate value against the WRITE_FIELD_SPECS entry for field."""
+        spec = WRITE_FIELD_SPECS[field]
+        label = field.replace("_", " ")
+        kind = "numeric" if spec["type"] == (int, float) else "an integer"
+        # bool is a subclass of int, so check the exact type rather than
+        # isinstance() to keep True/False from passing as 0/1.
+        if type(value) not in spec["type"]:
+            raise ValueError(f"{label} must be {kind}, got: {type(value).__name__}")
+        if value < spec["min"] or value > spec["max"]:
+            raise ValueError(
+                f"{label} must be {kind} between {spec['min']}-{spec['max']}, "
+                f"got: {value}"
+            )
+
     def set_mode(self, mode):
         """Set the active thermostat mode.
 
         Args:
             mode: Integer 0-4 (Off=0, Auto=1, Cool=2, Heat=3, E-Heat=4)
         """
-        if isinstance(mode, bool) or not isinstance(mode, int) or mode < 0 or mode > 4:
-            raise ValueError(f"mode must be an integer 0-4, got: {mode}")
+        self._validate("mode", mode)
         return self._ws_write(activemode_write=mode)
 
     def set_cooling_setpoint(self, temperature):
@@ -501,14 +528,7 @@ class SymphonyGeothermal:
         Args:
             temperature: Temperature in degrees Fahrenheit (60-90)
         """
-        if not isinstance(temperature, (int, float)):
-            raise ValueError(
-                f"temperature must be numeric, got: {type(temperature).__name__}"
-            )
-        if temperature < 60 or temperature > 90:
-            raise ValueError(
-                f"cooling temperature must be between 60-90F, got: {temperature}"
-            )
+        self._validate("cooling_setpoint", temperature)
         return self._ws_write(coolingsp_write=temperature)
 
     def set_heating_setpoint(self, temperature):
@@ -519,14 +539,7 @@ class SymphonyGeothermal:
         Args:
             temperature: Temperature in degrees Fahrenheit (40-80)
         """
-        if not isinstance(temperature, (int, float)):
-            raise ValueError(
-                f"temperature must be numeric, got: {type(temperature).__name__}"
-            )
-        if temperature < 40 or temperature > 80:
-            raise ValueError(
-                f"heating temperature must be between 40-80F, got: {temperature}"
-            )
+        self._validate("heating_setpoint", temperature)
         return self._ws_write(heatingsp_write=temperature)
 
     def set_fan_mode(self, mode, intertimeon=None, intertimeoff=None):
@@ -537,8 +550,7 @@ class SymphonyGeothermal:
             intertimeon: Minutes on-time, required when mode=2
             intertimeoff: Minutes off-time, required when mode=2
         """
-        if isinstance(mode, bool) or not isinstance(mode, int) or mode < 0 or mode > 2:
-            raise ValueError(f"fan mode must be an integer 0-2, got: {mode}")
+        self._validate("fan_mode", mode)
         if mode == 2:
             if intertimeon is None or intertimeoff is None:
                 raise ValueError(
@@ -573,15 +585,7 @@ class SymphonyGeothermal:
         Args:
             humidity: Target humidity percentage (15-95)
         """
-        if (
-            isinstance(humidity, bool)
-            or not isinstance(humidity, int)
-            or humidity < 15
-            or humidity > 95
-        ):
-            raise ValueError(
-                f"humidity must be an integer between 15-95, got: {humidity}"
-            )
+        self._validate("humidity", humidity)
         reading = self.read()
         return self._ws_write(
             humidity_offset_settings=reading.raw_humidity_offset_settings,

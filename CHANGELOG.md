@@ -36,6 +36,20 @@
   raise `WFError` for a server-reported login error (e.g. a revoked
   session); this is intentionally not retried like a transient websocket
   failure, and propagates out of `read_with_retry()` to the caller.
+- Extracted the near-identical range-validation logic duplicated across
+  `set_mode()`, `set_cooling_setpoint()`, `set_heating_setpoint()`,
+  `set_fan_mode()`, and `set_humidity()` into a single `_validate()`
+  helper driven by a `WRITE_FIELD_SPECS` table (min/max/accepted-types per
+  field). Each field's accepted types are checked by exact type rather than
+  `isinstance()`, since `bool` is a subclass of `int` in Python and would
+  otherwise let `True`/`False` slip through an int-only check as if they
+  were `1`/`0`. The `ValueError` wording for these five is now uniform
+  (e.g. "cooling setpoint must be numeric between 60-90, got: X") instead
+  of each method having its own slightly different phrasing. One small
+  behavior change: `set_cooling_setpoint()`/`set_heating_setpoint()` now
+  reject `bool` at the type-check stage, same as the other three methods;
+  previously a `bool` was let through the type check (since `isinstance`
+  treats it as an `int`) and only rejected later by the range check.
 
 ## [1.9.2] - 2026-09-12
 
