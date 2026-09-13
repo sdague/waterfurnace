@@ -26,6 +26,16 @@
   bare `except Exception`. Also fixed: `read()`'s abort timer is now
   reliably cancelled even if `send()`/`recv()` raises (previously only
   `_ws_write()` guaranteed this).
+- The websocket login request now also goes through `_ws_send()`, instead
+  of `_send_login_request()` doing its own raw send/recv/decode. As a
+  result, the login response's `err` field is now actually checked
+  (previously never inspected), raising `WFError` with the server's
+  message on a login-level error instead of silently proceeding or
+  failing later with an opaque `WFWebsocketClosedError` from a missing
+  field. One consequence: `read_with_retry()`'s relogin step can now
+  raise `WFError` for a server-reported login error (e.g. a revoked
+  session); this is intentionally not retried like a transient websocket
+  failure, and propagates out of `read_with_retry()` to the caller.
 
 ## [1.9.2] - 2026-09-12
 

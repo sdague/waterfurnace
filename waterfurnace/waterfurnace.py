@@ -300,22 +300,22 @@ class SymphonyGeothermal:
             "source": "consumer dashboard",
             "sessionid": self.sessionid,
         }
-        self.ws.send(json.dumps(login))
-        # TODO(sdague): we should probably check the response, but
-        # it's not clear anything is useful in it.
-        return self.ws.recv()
+        return self._ws_send(login)
 
-    def _parse_login_response(self, recv):
-        """Decode the login response and return its locations list."""
+    def _parse_login_response(self, data):
+        """Pull account_id/locations out of a decoded login response."""
+        _LOGGER.debug("Login response: %s", data)
         try:
-            data = json.loads(recv)
-            _LOGGER.debug("Login response: %s", data)
-
-            self.account_id = data["key"]
-            return data["locations"]
-        except (ValueError, KeyError) as e:
-            _LOGGER.exception("Unable to decode websocket login response: %s", recv)
+            if data["err"]:
+                raise WFError(data["err"])
+            account_id = data["key"]
+            locations = data["locations"]
+        except KeyError as e:
+            _LOGGER.exception("Login response missing expected field: %s", data)
             raise WFWebsocketClosedError() from e
+
+        self.account_id = account_id
+        return locations
 
     def _resolve_gwid(self, locations):
         """Resolve self.location/self.device against locations and set gwid."""
@@ -347,11 +347,10 @@ class SymphonyGeothermal:
 
     def _login_ws(self):
         self._connect_ws()
-        recv = self._send_login_request()
-        locations = self._parse_login_response(recv)
+        data = self._send_login_request()
+        locations = self._parse_login_response(data)
         self._location_data = locations
         self._resolve_gwid(locations)
-        self.next_tid()
 
     def login(self):
         if self.sessionid:

@@ -217,13 +217,29 @@ class TestSymphony(unittest.TestCase):
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
     @mock.patch("requests.post")
-    def test_login_ws_missing_locations(self, mock_req, mock_get, mock_ws_create):
+    def test_login_ws_error_response(self, mock_req, mock_get, mock_ws_create):
         mock_get.return_value = FakeRequest()
         mock_req.return_value = FakeRequest(
             cookies={"sessionid": str(mock.sentinel.sessionid)},
         )
         m_ws = mock.MagicMock()
         m_ws.recv.return_value = json.dumps({"err": "something went wrong"})
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        with pytest.raises(wf.WFError, match="something went wrong"):
+            w.login()
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_ws_missing_locations(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps({"err": "", "key": 1234})
         mock_ws_create.return_value = m_ws
 
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
@@ -439,6 +455,35 @@ class TestReadData(unittest.TestCase):
             w.read()
 
         assert w.tid == tid_before
+
+    @mock.patch("time.sleep")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_retry_login_error_propagates(
+        self, mock_req, mock_get, mock_ws_create, mock_sleep
+    ):
+        """A server-reported login error during a relogin isn't retriable."""
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        w.login()
+
+        # First read() fails, forcing read_with_retry() to relogin.
+        # That relogin's own response reports a login-level error.
+        m_ws.recv.side_effect = [
+            "not json",
+            json.dumps({"err": "invalid session"}),
+        ]
+
+        with pytest.raises(wf.WFError, match="invalid session"):
+            w.read_with_retry()
 
 
 class TestEnergyData(unittest.TestCase):
