@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.4] - 2026-09-13
 
 ### Fixed
 - Restored `read_with_retry()` as an alias for `read()`. It was removed in
