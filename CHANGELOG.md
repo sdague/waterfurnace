@@ -15,6 +15,17 @@
   always include it, and treating it as optional only meant a missing
   `key` would surface later as a broken request from `get_energy_data()`
   instead of failing clearly at login time.
+- Extracted the duplicated timer/send/recv/exception-translation logic
+  shared by `_ws_write()` and `read()` into a single `_ws_send()` method,
+  with the 10s abort-timer setup/teardown pulled out into a
+  `_ws_abort_timer()` context manager so it no longer clutters the main
+  send/recv flow. As part of this, `read()` now raises `WFError` (instead
+  of `WFWebsocketClosedError`) for a server-reported error, the same as
+  `_ws_write()` already did — the two had been inconsistent since
+  `read()`'s own `WFError` was accidentally caught and rewrapped by its
+  bare `except Exception`. Also fixed: `read()`'s abort timer is now
+  reliably cancelled even if `send()`/`recv()` raises (previously only
+  `_ws_write()` guaranteed this).
 
 ## [1.9.2] - 2026-09-12
 

@@ -412,8 +412,33 @@ class TestReadData(unittest.TestCase):
         )
 
         mock_ws_create.return_value = m_ws
+        with pytest.raises(wf.WFError, match="something went wrong"):
+            w.read()
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_tid_not_incremented_on_bad_json(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)}
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(
+            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit)
+        )
+        w.login()
+
+        tid_before = w.tid
+        # Not valid JSON, so read() should fail before the tid is bumped.
+        m_ws.recv.return_value = "not json"
         with pytest.raises(wf.WFWebsocketClosedError):
             w.read()
+
+        assert w.tid == tid_before
 
 
 class TestEnergyData(unittest.TestCase):

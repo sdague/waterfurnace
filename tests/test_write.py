@@ -54,6 +54,16 @@ class TestWsWrite:
         result = client._ws_write(activemode_write=0)
         assert result["data"] == "ok"
 
+    def test_tid_not_incremented_on_bad_json(self, mock_waterfurnace_client):
+        client = mock_waterfurnace_client
+        tid_before = client.tid
+        # Not valid JSON, so _ws_write() should fail before the tid is bumped.
+        client.ws.recv_data.append("not json")
+        with pytest.raises(wf.WFWebsocketClosedError):
+            client._ws_write(activemode_write=0)
+
+        assert client.tid == tid_before
+
 
 class TestSetMode:
     """Tests for set_mode."""

@@ -1,5 +1,6 @@
 """Main module."""
 
+import contextlib
 import copy
 import json
 import logging
@@ -400,20 +401,41 @@ class SymphonyGeothermal:
         except Exception:
             _LOGGER.exception("Can't abort, this might be interesting....")
 
-    def _ws_read(self):
-        req = copy.deepcopy(DATA_REQUEST)
-        req["tid"] = self.tid
-        req["awlid"] = self.gwid
-
-        _LOGGER.debug("Req: %s", req)
+    @contextlib.contextmanager
+    def _ws_abort_timer(self):
+        """Abort the websocket if the enclosed block doesn't finish in time."""
         timer = threading.Timer(10.0, self._abort, [self])
         timer.start()
-        self.ws.send(json.dumps(req))
-        _LOGGER.debug("Successful send")
-        data = self.ws.recv()
-        _LOGGER.debug("Successful recv")
-        timer.cancel()
-        return data
+        try:
+            yield
+        finally:
+            timer.cancel()
+
+    def _ws_send(self, req):
+        """Send a request and return its decoded response.
+
+        Bumps tid and translates websocket/JSON failures into
+        WFWebsocketClosedError.
+        """
+        _LOGGER.debug("Req: %s", req)
+        try:
+            with self._ws_abort_timer():
+                self.ws.send(json.dumps(req))
+                _LOGGER.debug("Successful send")
+                data = self.ws.recv()
+                _LOGGER.debug("Successful recv")
+            datadecoded = json.loads(data)
+            self.next_tid()
+            return datadecoded
+        except websocket.WebSocketConnectionClosedException as e:
+            _LOGGER.exception("Websocket closed, probably from a timeout")
+            raise WFWebsocketClosedError() from e
+        except ValueError as e:
+            _LOGGER.exception("Unable to decode data as json: %s", data)
+            raise WFWebsocketClosedError() from e
+        except Exception as e:
+            _LOGGER.exception("Unknown exception, socket probably failed")
+            raise WFWebsocketClosedError() from e
 
     def _ws_write(self, **kwargs):
         req = {
@@ -425,51 +447,23 @@ class SymphonyGeothermal:
         req.update(kwargs)
 
         _LOGGER.debug("Write req: %s", req)
-        timer = threading.Timer(10.0, self._abort, [self])
-        timer.start()
-        try:
-            self.ws.send(json.dumps(req))
-            data = self.ws.recv()
-            timer.cancel()
-            self.next_tid()
-            datadecoded = json.loads(data)
-            _LOGGER.debug("Write resp: %s", datadecoded)
-            if datadecoded["err"]:
-                raise WFError(datadecoded["err"])
-            return datadecoded
-        except WFError:
-            raise
-        except websocket.WebSocketConnectionClosedException as e:
-            _LOGGER.exception("Websocket closed, probably from a timeout")
-            raise WFWebsocketClosedError() from e
-        except ValueError as e:
-            _LOGGER.exception("Unable to decode data as json: %s", data)
-            raise WFWebsocketClosedError() from e
-        except Exception as e:
-            _LOGGER.exception("Unknown exception, socket probably failed")
-            raise WFWebsocketClosedError() from e
-        finally:
-            timer.cancel()
+        datadecoded = self._ws_send(req)
+        _LOGGER.debug("Write resp: %s", datadecoded)
+        if datadecoded["err"]:
+            raise WFError(datadecoded["err"])
+        return datadecoded
 
     def read(self):
-        try:
-            data = self._ws_read()
-            self.next_tid()
-            datadecoded = json.loads(data)
-            _LOGGER.debug("Resp: %s", datadecoded)
-            if not datadecoded["err"]:
-                return WFReading(datadecoded)
-            else:
-                raise WFError(datadecoded["err"])
-        except websocket.WebSocketConnectionClosedException as e:
-            _LOGGER.exception("Websocket closed, probably from a timeout")
-            raise WFWebsocketClosedError() from e
-        except ValueError as e:
-            _LOGGER.exception("Unable to decode data as json: %s", data)
-            raise WFWebsocketClosedError() from e
-        except Exception as e:
-            _LOGGER.exception("Unknown exception, socket probably failed")
-            raise WFWebsocketClosedError() from e
+        req = copy.deepcopy(DATA_REQUEST)
+        req["tid"] = self.tid
+        req["awlid"] = self.gwid
+
+        datadecoded = self._ws_send(req)
+        _LOGGER.debug("Resp: %s", datadecoded)
+        if not datadecoded["err"]:
+            return WFReading(datadecoded)
+        else:
+            raise WFError(datadecoded["err"])
 
     def read_with_retry(self):
         while self.fails <= self.max_fails:
