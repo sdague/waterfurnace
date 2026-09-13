@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Refactored the duplicated location/device selector logic in `_login_ws()`
+  into a shared `_resolve_by_index_or_match()` helper, making it easier to
+  reason about and test the int-index vs. string-match resolution paths.
+
 ## [1.9.2] - 2026-09-12
 
 ### Fixed

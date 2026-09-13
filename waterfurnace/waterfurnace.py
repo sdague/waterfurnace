@@ -253,6 +253,34 @@ class SymphonyGeothermal:
             else:
                 raise WFError() from e
 
+    @staticmethod
+    def _resolve_by_index_or_match(selector, items, kind, match):
+        """Resolve an item from a list by integer index or string match.
+
+        Args:
+            selector: An int index into items, or a str to find via match.
+            items: The list to resolve from.
+            kind: Human-readable name of what's being resolved, for errors.
+            match: Callable(item, selector) -> bool, used when selector is a str.
+        """
+        if isinstance(selector, int):
+            try:
+                return items[selector]
+            except IndexError as e:
+                raise WFError(
+                    f"{kind} index out of range. Max index is {len(items) - 1}"
+                ) from e
+        elif isinstance(selector, str):
+            for item in items:
+                if match(item, selector):
+                    return item
+            raise WFError(f"Unable to find {kind.lower()}: {selector}")
+        else:
+            raise WFError(
+                f"Unknown {kind.lower()} type ({type(selector)}): {selector}. "
+                f"Should be int or str"
+            )
+
     def _login_ws(self):
         # The following is needed to allow legacy negotiation because
         # WF is kind of slow in updating infrastructure
@@ -287,30 +315,13 @@ class SymphonyGeothermal:
             raise WFWebsocketClosedError() from e
 
         self._location_data = locations
-        location = None
 
-        if isinstance(self.location, int):
-            try:
-                location = locations[self.location]
-            except Exception as e:
-                raise WFError(
-                    "Location index out of range. Max index is %s", len(locations) - 1
-                ) from e
-        elif isinstance(self.location, str):
-            for index, location_data in enumerate(locations):
-                location_description = location_data.get("description")
-                if location_description == self.location:
-                    location = locations[index]
-                    break
-
-            if not location:
-                raise WFError("Unable to find location: %s", self.location)
-        else:
-            raise WFError(
-                "Unknown location type (%s): %s. Should be int or str",
-                type(self.location),
-                self.location,
-            )
+        location = self._resolve_by_index_or_match(
+            self.location,
+            locations,
+            "Location",
+            match=lambda item, selector: item.get("description") == selector,
+        )
 
         try:
             gateways = location["gateways"]
@@ -319,31 +330,15 @@ class SymphonyGeothermal:
                 "Location missing expected 'gateways' field: %s", location
             )
             raise WFWebsocketClosedError() from e
-        device = None
 
-        if isinstance(self.device, int):
-            try:
-                device = gateways[self.device]
-            except Exception as e:
-                raise WFError(
-                    "Device index out of range. Max index is %s", len(gateways) - 1
-                ) from e
-        elif isinstance(self.device, str):
-            for index, gateway_data in enumerate(gateways):
-                gateway_gwid = gateway_data.get("gwid")
-                gateway_description = gateway_data.get("description")
-                if gateway_gwid == self.device or gateway_description == self.device:
-                    device = gateways[index]
-                    break
-
-            if not device:
-                raise WFError("Unable to find device: %s", self.device)
-        else:
-            raise WFError(
-                "Unknown device type (%s): %s. Should be int or str",
-                type(self.device),
-                self.device,
-            )
+        device = self._resolve_by_index_or_match(
+            self.device,
+            gateways,
+            "Device",
+            match=lambda item, selector: (
+                item.get("gwid") == selector or item.get("description") == selector
+            ),
+        )
 
         self.gwid = device["gwid"]
         self.next_tid()

@@ -756,3 +756,49 @@ class TestSymphonyLocationMethods:
         symphony._location_data = [loc_data]
 
         assert symphony.devices == []
+
+
+class TestResolveByIndexOrMatch:
+    """Tests for SymphonyGeothermal._resolve_by_index_or_match."""
+
+    ITEMS = [{"gwid": "gw-1", "description": "Home"}, {"gwid": "gw-2"}]
+
+    @staticmethod
+    def _match(item, selector):
+        return item.get("gwid") == selector or item.get("description") == selector
+
+    def test_resolves_by_int_index(self):
+        item = wf.SymphonyGeothermal._resolve_by_index_or_match(
+            1, self.ITEMS, "Device", self._match
+        )
+        assert item == self.ITEMS[1]
+
+    def test_int_index_out_of_range_raises(self):
+        with pytest.raises(wf.WFError, match="Device index out of range"):
+            wf.SymphonyGeothermal._resolve_by_index_or_match(
+                5, self.ITEMS, "Device", self._match
+            )
+
+    def test_resolves_by_string_match(self):
+        item = wf.SymphonyGeothermal._resolve_by_index_or_match(
+            "gw-2", self.ITEMS, "Device", self._match
+        )
+        assert item == self.ITEMS[1]
+
+    def test_resolves_by_string_match_secondary_field(self):
+        item = wf.SymphonyGeothermal._resolve_by_index_or_match(
+            "Home", self.ITEMS, "Device", self._match
+        )
+        assert item == self.ITEMS[0]
+
+    def test_string_no_match_raises(self):
+        with pytest.raises(wf.WFError, match="Unable to find device: nope"):
+            wf.SymphonyGeothermal._resolve_by_index_or_match(
+                "nope", self.ITEMS, "Device", self._match
+            )
+
+    def test_invalid_selector_type_raises(self):
+        with pytest.raises(wf.WFError, match="Unknown device type"):
+            wf.SymphonyGeothermal._resolve_by_index_or_match(
+                3.5, self.ITEMS, "Device", self._match
+            )
