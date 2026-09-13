@@ -210,7 +210,12 @@ class SymphonyGeothermal:
         self.tid = (self.tid + 1) % 100
 
     def _check_session_id(self):
-        """Check an existing session ID."""
+        """Verify self.sessionid is still valid.
+
+        Raises WFCredentialError if the session has expired or the server's
+        response can't be parsed as the expected user payload, so callers
+        can fall back to a fresh login.
+        """
         _LOGGER.debug("Checking existing session.")
         headers = {
             "user-agent": USER_AGENT,

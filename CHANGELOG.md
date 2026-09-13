@@ -70,6 +70,9 @@
   its final, doomed attempt — previously it always slept
   `self.fails * ERROR_INTERVAL` after every failure, including the last
   one right before giving up and raising.
+- Documented `_check_session_id()`'s raise-on-invalid-session contract in
+  its docstring (raises `WFCredentialError`, which `login()` relies on to
+  know when to fall back to a fresh login). No behavior change.
 
 ## [1.9.2] - 2026-09-12
 
