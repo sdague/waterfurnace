@@ -86,6 +86,7 @@ def sample_login_response():
     """Sample login response data."""
     return {
         "err": "",
+        "key": 1234,
         "locations": [
             {
                 "description": "Home",
@@ -120,6 +121,7 @@ def sample_multi_location_response():
     """Sample response with multiple locations and devices."""
     return {
         "err": "",
+        "key": 1234,
         "locations": [
             {
                 "description": "Home",

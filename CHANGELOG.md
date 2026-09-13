@@ -6,6 +6,15 @@
 - Refactored the duplicated location/device selector logic in `_login_ws()`
   into a shared `_resolve_by_index_or_match()` helper, making it easier to
   reason about and test the int-index vs. string-match resolution paths.
+- Split `_login_ws()` into `_connect_ws()`, `_send_login_request()`,
+  `_parse_login_response()`, and `_resolve_gwid()`, each with a single
+  responsibility, so the overall login flow reads as a short linear
+  sequence instead of one long method.
+- The websocket login response's `key` field (used as `account_id`) is now
+  treated as required, the same as `locations`. Real server responses
+  always include it, and treating it as optional only meant a missing
+  `key` would surface later as a broken request from `get_energy_data()`
+  instead of failing clearly at login time.
 
 ## [1.9.2] - 2026-09-12
 

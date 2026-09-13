@@ -16,7 +16,11 @@ from waterfurnace import waterfurnace as wf
 _LOGGER = logging.getLogger(__name__)
 
 
-FAKE_RESPONSE = {"err": "", "locations": [{"gateways": [{"gwid": "123456"}]}]}
+FAKE_RESPONSE = {
+    "err": "",
+    "key": 1234,
+    "locations": [{"gateways": [{"gwid": "123456"}]}],
+}
 
 
 FAKE_CONTENT = json.dumps(FAKE_RESPONSE)

@@ -281,17 +281,18 @@ class SymphonyGeothermal:
                 f"Should be int or str"
             )
 
-    def _login_ws(self):
+    def _connect_ws(self):
         # The following is needed to allow legacy negotiation because
         # WF is kind of slow in updating infrastructure
-        sslopt = {}
         ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
-        sslopt.update({"context": ctx})
+        sslopt = {"context": ctx}
 
         self.ws = websocket.create_connection(
             self.ws_url, timeout=TIMEOUT, sslopt=sslopt
         )
+
+    def _send_login_request(self):
         login = {
             "cmd": "login",
             "tid": self.tid,
@@ -301,21 +302,22 @@ class SymphonyGeothermal:
         self.ws.send(json.dumps(login))
         # TODO(sdague): we should probably check the response, but
         # it's not clear anything is useful in it.
-        recv = self.ws.recv()
+        return self.ws.recv()
+
+    def _parse_login_response(self, recv):
+        """Decode the login response and return its locations list."""
         try:
             data = json.loads(recv)
             _LOGGER.debug("Login response: %s", data)
 
-            if "key" in data:
-                self.account_id = data["key"]
-
-            locations = data["locations"]
+            self.account_id = data["key"]
+            return data["locations"]
         except (ValueError, KeyError) as e:
             _LOGGER.exception("Unable to decode websocket login response: %s", recv)
             raise WFWebsocketClosedError() from e
 
-        self._location_data = locations
-
+    def _resolve_gwid(self, locations):
+        """Resolve self.location/self.device against locations and set gwid."""
         location = self._resolve_by_index_or_match(
             self.location,
             locations,
@@ -341,6 +343,13 @@ class SymphonyGeothermal:
         )
 
         self.gwid = device["gwid"]
+
+    def _login_ws(self):
+        self._connect_ws()
+        recv = self._send_login_request()
+        locations = self._parse_login_response(recv)
+        self._location_data = locations
+        self._resolve_gwid(locations)
         self.next_tid()
 
     def login(self):
