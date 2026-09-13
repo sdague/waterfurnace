@@ -403,6 +403,10 @@ class TestReadData(unittest.TestCase):
         assert data.activesettings.heatingsp_read == 69
         assert data.activesettings.coolingsp_read == 75
 
+    def test_read_with_retry_is_alias_for_read(self):
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        assert w.read_with_retry == w.read
+
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
     @mock.patch("requests.post")

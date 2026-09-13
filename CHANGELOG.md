@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Restored `read_with_retry()` as an alias for `read()`. It was removed in
+  1.9.3 when the retry loop it used to implement became the default
+  behavior of `read()` itself, but existing callers (e.g. Home Assistant's
+  `waterfurnace` integration) still call it by the old name.
+
 ## [1.9.3] - 2026-09-13
 
 ### Changed

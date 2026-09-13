@@ -517,6 +517,12 @@ class SymphonyGeothermal:
         else:
             raise WFError(datadecoded["err"])
 
+    # Deprecated alias kept for backwards compatibility: read() has included
+    # retry/relogin behavior since 1.9.3, so read_with_retry is no longer a
+    # distinct method. Existing callers (e.g. Home Assistant's coordinator)
+    # still call it by this name.
+    read_with_retry = read
+
     @staticmethod
     def _validate(field, value):
         """Validate value against the WRITE_FIELD_SPECS entry for field."""
