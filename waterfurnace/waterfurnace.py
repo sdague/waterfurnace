@@ -712,18 +712,26 @@ class ActiveSettings:
     def __init__(self, data=None):
         if data is None:
             data = {}
+
+        # mode
         self.activemode = data.get("activemode")
+        self.tstatmode = data.get("tstatmode")
+
+        # setpoints (degrees F)
         self.heatingsp_read = data.get("heatingsp_read")
         self.coolingsp_read = data.get("coolingsp_read")
+
+        # fan
         self.fanmode_read = data.get("fanmode_read")
+        self.intertimeon_read = data.get("intertimeon_read")
+        self.intertimeoff_read = data.get("intertimeoff_read")
+
+        # hold/override flags
         self.temporaryoverride = data.get("temporaryoverride")
         self.permanenthold = data.get("permanenthold")
         self.vacationhold = data.get("vacationhold")
         self.onpeakhold = data.get("onpeakhold")
         self.superboost = data.get("superboost")
-        self.tstatmode = data.get("tstatmode")
-        self.intertimeon_read = data.get("intertimeon_read")
-        self.intertimeoff_read = data.get("intertimeoff_read")
 
     @property
     def mode(self):
@@ -823,7 +831,7 @@ class WFEnergyReading:
             if i < len(values):
                 data_dict[col] = values[i]
 
-        # Common fields for all frequencies
+        # common fields (all frequencies)
         self.total_heat_1 = data_dict.get("total_heat_1")
         self.total_heat_2 = data_dict.get("total_heat_2")
         self.total_cool_1 = data_dict.get("total_cool_1")
@@ -835,7 +843,7 @@ class WFEnergyReading:
         self.total_power = data_dict.get("total_power")
         self.total_records = data_dict.get("total_records")
 
-        # Runtime fields (hour/15min frequency)
+        # runtime fields (hour/15min frequency)
         self.runtime_heat_1 = data_dict.get("runtime_heat_1")
         self.runtime_heat_2 = data_dict.get("runtime_heat_2")
         self.runtime_cool_1 = data_dict.get("runtime_cool_1")
@@ -846,7 +854,7 @@ class WFEnergyReading:
         self.cool_runtime = data_dict.get("cool_runtime")
         self.heat_runtime = data_dict.get("heat_runtime")
 
-        # Daily frequency specific fields
+        # daily frequency only
         self.id = data_dict.get("id")
         self.defrost_runtime = data_dict.get("defrost_runtime")
         self.dehumidification_runtime = data_dict.get("dehumidification_runtime")

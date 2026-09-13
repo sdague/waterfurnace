@@ -50,6 +50,11 @@
   reject `bool` at the type-check stage, same as the other three methods;
   previously a `bool` was let through the type check (since `isinstance`
   treats it as an `int`) and only rejected later by the range check.
+- Grouped `ActiveSettings`'s attributes into labeled sections (mode,
+  setpoints, fan, hold/override flags) and normalized `WFEnergyReading`'s
+  existing grouping comments to a terser style, matching the
+  grouping-comment convention `WFReading` already uses. No behavior
+  change.
 
 ## [1.9.2] - 2026-09-12
 
