@@ -417,9 +417,7 @@ class TestReadData(unittest.TestCase):
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
 
-        w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit)
-        )
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd, max_fails=0)
         w.login()
 
         # Replace the data content once we get to read
@@ -443,9 +441,7 @@ class TestReadData(unittest.TestCase):
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
 
-        w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit)
-        )
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd, max_fails=0)
         w.login()
 
         tid_before = w.tid
@@ -475,7 +471,7 @@ class TestReadData(unittest.TestCase):
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
         w.login()
 
-        # First read() fails, forcing read_with_retry() to relogin.
+        # First read() attempt fails, forcing a relogin retry.
         # That relogin's own response reports a login-level error.
         m_ws.recv.side_effect = [
             "not json",
@@ -483,7 +479,7 @@ class TestReadData(unittest.TestCase):
         ]
 
         with pytest.raises(wf.WFError, match="invalid session"):
-            w.read_with_retry()
+            w.read()
 
 
 class TestEnergyData(unittest.TestCase):

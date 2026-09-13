@@ -2,6 +2,7 @@
 
 import contextlib
 import copy
+import functools
 import json
 import logging
 import re
@@ -135,6 +136,40 @@ class WFError(WFException):
 
 class WFNoDataError(WFException):
     pass
+
+
+def _with_retry(func):
+    """Retry a websocket-facing method on connection/auth failure.
+
+    The furnace's websocket auth can drop at any point, with no way to know
+    in advance when that will happen, so any call onto the wire needs to be
+    prepared to relogin and retry rather than fail outright. On
+    RequestException/WFWebsocketClosedError, this reconnects (self.login())
+    and retries with increasing backoff, up to self.max_fails times, leaving
+    self.fails outside 0..max_fails only while a retry loop is in progress.
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        while self.fails <= self.max_fails:
+            try:
+                if self.fails >= 1:
+                    self.login()
+                    _LOGGER.debug("Reconnected to furnace")
+                result = func(self, *args, **kwargs)
+                self.fails = 0
+                return result
+            except requests.exceptions.RequestException:  # noqa: PERF203
+                self.fails = self.fails + 1
+                _LOGGER.exception("relogin failed, trying again")
+            except WFWebsocketClosedError:
+                self.fails = self.fails + 1
+                _LOGGER.exception("websocket read failed, reconnecting")
+            if self.fails <= self.max_fails:
+                time.sleep(self.fails * ERROR_INTERVAL)
+        raise WFWebsocketClosedError("Failed to refresh credentials after retries")
+
+    return wrapper
 
 
 class SymphonyGeothermal:
@@ -464,6 +499,7 @@ class SymphonyGeothermal:
             raise WFError(datadecoded["err"])
         return datadecoded
 
+    @_with_retry
     def read(self):
         req = copy.deepcopy(DATA_REQUEST)
         req["tid"] = self.tid
@@ -475,25 +511,6 @@ class SymphonyGeothermal:
             return WFReading(datadecoded)
         else:
             raise WFError(datadecoded["err"])
-
-    def read_with_retry(self):
-        while self.fails <= self.max_fails:
-            try:
-                if self.fails >= 1:
-                    self.login()
-                    _LOGGER.debug("Reconnected to furnace")
-                data = self.read()
-                self.fails = 0
-                return data
-            except requests.exceptions.RequestException:  # noqa: PERF203
-                self.fails = self.fails + 1
-                _LOGGER.exception("relogin failed, trying again")
-                time.sleep(self.fails * ERROR_INTERVAL)
-            except WFWebsocketClosedError:
-                self.fails = self.fails + 1
-                _LOGGER.exception("websocket read failed, reconnecting")
-                time.sleep(self.fails * ERROR_INTERVAL)
-        raise WFWebsocketClosedError("Failed to refresh credentials after retries")
 
     @staticmethod
     def _validate(field, value):

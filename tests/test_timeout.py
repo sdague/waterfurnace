@@ -65,10 +65,11 @@ class FakeRequest:
 
 
 class TestTimeout(unittest.TestCase):
+    @mock.patch("time.sleep")
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
     @mock.patch("requests.post")
-    def test_increment_read_data(self, mock_req, mock_get, mock_ws_create):
+    def test_increment_read_data(self, mock_req, mock_get, mock_ws_create, mock_sleep):
         mock_get.return_value = FakeRequest()
         mock_req.return_value = FakeRequest(
             cookies={"sessionid": str(mock.sentinel.sessionid)}
@@ -77,9 +78,9 @@ class TestTimeout(unittest.TestCase):
 
         mock_ws_create.return_value = m_ws
 
-        w = wf.WaterFurnace(
-            mock.sentinel.email, mock.sentinel.passwd, str(mock.sentinel.unit)
-        )
+        # max_fails=0 keeps this test focused on a single read's abort-timer
+        # behavior, without also exercising the retry loop.
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd, max_fails=0)
         w.login()
 
         with pytest.raises(wf.WFWebsocketClosedError):

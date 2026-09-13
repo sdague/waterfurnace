@@ -55,6 +55,21 @@
   existing grouping comments to a terser style, matching the
   grouping-comment convention `WFReading` already uses. No behavior
   change.
+- Collapsed `read()` and `read_with_retry()` into a single `read()` method.
+  The relogin/backoff/retry loop that `read_with_retry()` used to implement
+  is now a `_with_retry` decorator applied to `read()`, so the retry
+  mechanics live outside `read()`'s main flow instead of duplicating it in
+  a second method. `read_with_retry()` is removed. One consequence: every
+  caller of `read()` now gets retry/relogin behavior by default, including
+  `sensors_cmd`'s continuous-polling loop in the CLI (previously a bare,
+  non-retrying `read()` call — likely an oversight, since retrying is
+  exactly what that use case wants) and `set_humidity()`'s internal read of
+  current state before writing (previously fast-failing; now it can retry
+  for up to several minutes on a transient failure before giving up, same
+  as any other read). Also fixed: the retry loop no longer sleeps before
+  its final, doomed attempt — previously it always slept
+  `self.fails * ERROR_INTERVAL` after every failure, including the last
+  one right before giving up and raising.
 
 ## [1.9.2] - 2026-09-12
 
