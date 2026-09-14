@@ -246,9 +246,7 @@ class TestSetFanMode:
 
     @pytest.mark.parametrize("intertimeoff", [0, 61, -5])
     def test_intertimeoff_out_of_range(self, mock_waterfurnace_client, intertimeoff):
-        with pytest.raises(
-            ValueError, match="intertimeoff must be an integer between"
-        ):
+        with pytest.raises(ValueError, match="intertimeoff must be an integer between"):
             mock_waterfurnace_client.set_fan_mode(
                 2, intertimeon=5, intertimeoff=intertimeoff
             )
