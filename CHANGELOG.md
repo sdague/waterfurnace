@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.5] - 2026-09-14
+
+This release is part of an extensive refactoring of the library aimed at
+long-term maintainability, and at making service failures (websocket
+drops, malformed responses, invalid session state) get handled
+consistently across the codebase instead of each code path having its own
+slightly different retry/error behavior.
 
 ### Changed
 - Split `SymphonyGeothermal`'s HTTP-login and websocket-transport concerns
