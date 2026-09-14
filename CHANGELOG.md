@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Split `SymphonyGeothermal`'s HTTP-login and websocket-transport concerns
+  into two internal collaborator classes: `_AuthSession` (session-id
+  acquisition/validation) and `_WsTransport` (websocket connect, login
+  handshake, tid, and read/write framing). `SymphonyGeothermal` now composes
+  these via `self._auth`/`self._transport` instead of holding all of their
+  state and methods directly. This is an internal structural change with no
+  behavior change to the public API (`login()`, `read()`, `locations`,
+  `devices`, `gwid`, `account_id`, the `set_*` write methods, and
+  `get_energy_data()` all work the same as before, including for existing
+  consumers like Home Assistant's `waterfurnace` integration). Some
+  lower-level internals that were never part of the documented API (e.g.
+  `symphony.tid`, `symphony.sessionid`, `symphony.ws`) are no longer exposed
+  directly on `SymphonyGeothermal` and now live on `symphony._transport`/
+  `symphony._auth` instead.
+- `locations`, `devices`, `gwid`, and `account_id` are now resolved eagerly
+  during `login()` and stored as plain attributes, instead of
+  `locations`/`devices` being recomputed from raw response data on every
+  access. One behavior change: logging into a location that has no gateways
+  (and defaults to device index 0) now raises `WFError` from `login()`
+  itself, instead of `login()` succeeding and `devices` later evaluating to
+  an empty list.
+
 ## [1.9.4] - 2026-09-13
 
 ### Fixed

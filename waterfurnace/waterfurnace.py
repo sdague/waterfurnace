@@ -172,42 +172,29 @@ def _with_retry(func):
     return wrapper
 
 
-class SymphonyGeothermal:
-    def __init__(
-        self,
-        base_url,
-        login_url,
-        ws_url,
-        user,
-        passwd,
-        max_fails=5,
-        device=0,
-        location=0,
-        sessionid=None,
-    ):
+class _AuthSession:
+    """Owns the HTTP session-id: obtaining, validating, and holding it.
+
+    Pure HTTP concern, with no knowledge of the websocket connection that
+    the session id is later used to authenticate.
+    """
+
+    def __init__(self, base_url, login_url, user, passwd, sessionid=None):
         self.base_url = base_url
         self.login_url = login_url
-        self.ws_url = ws_url
         self.user = user
         self.passwd = passwd
-        self.location = location
-        self.device = device
-        self.gwid = None
         self.sessionid = sessionid
-        self.tid = 0
-        # For retry logic
-        self.max_fails = max_fails
-        self.fails = 0
-        self._location_data = None
-        # Unique ID for the account, regardless of email changes.
-        self.account_id = None
-        _LOGGER.debug(self)
 
-    def __repr__(self):
-        return f"<Symphony user={self.user}>"
-
-    def next_tid(self):
-        self.tid = (self.tid + 1) % 100
+    def get_session_id(self):
+        """Ensure self.sessionid is set to a valid session, refreshing if needed."""
+        if self.sessionid:
+            try:
+                self._check_session_id()
+            except WFCredentialError:
+                self._get_session_id()
+        else:
+            self._get_session_id()
 
     def _check_session_id(self):
         """Verify self.sessionid is still valid.
@@ -306,6 +293,30 @@ class SymphonyGeothermal:
             else:
                 raise WFError() from e
 
+
+class _WsTransport:
+    """Owns the websocket connection: login handshake, read, and write.
+
+    Holds tid, ws, gwid, account_id, and the resolved location data, all of
+    which only make sense in the context of an established websocket
+    session.
+    """
+
+    def __init__(self, ws_url, device=0, location=0):
+        self.ws_url = ws_url
+        self.device = device
+        self.location = location
+        self.ws = None
+        self.gwid = None
+        self.tid = 0
+        self.locations = None
+        self.devices = None
+        # Unique ID for the account, regardless of email changes.
+        self.account_id = None
+
+    def next_tid(self):
+        self.tid = (self.tid + 1) % 100
+
     @staticmethod
     def _resolve_by_index_or_match(selector, items, kind, match):
         """Resolve an item from a list by integer index or string match.
@@ -345,14 +356,14 @@ class SymphonyGeothermal:
             self.ws_url, timeout=TIMEOUT, sslopt=sslopt
         )
 
-    def _send_login_request(self):
+    def _send_login_request(self, sessionid):
         login = {
             "cmd": "login",
             "tid": self.tid,
             "source": "consumer dashboard",
-            "sessionid": self.sessionid,
+            "sessionid": sessionid,
         }
-        return self._ws_send(login)
+        return self.send(login)
 
     def _parse_login_response(self, data):
         """Pull account_id/locations out of a decoded login response."""
@@ -397,53 +408,26 @@ class SymphonyGeothermal:
 
         self.gwid = device["gwid"]
 
-    def _login_ws(self):
-        self._connect_ws()
-        data = self._send_login_request()
-        locations = self._parse_login_response(data)
-        self._location_data = locations
-        self._resolve_gwid(locations)
+    def _resolve_devices(self, locations):
+        """Resolve self.location against locations and return its WFGateways."""
+        target_location = self._resolve_by_index_or_match(
+            self.location,
+            locations,
+            "Location",
+            match=lambda item, selector: item.description == selector,
+        )
+        return target_location.gateways
 
-    def login(self):
-        if self.sessionid:
-            try:
-                self._check_session_id()
-            except WFCredentialError:
-                self._get_session_id()
-        else:
-            self._get_session_id()
+    def login(self, sessionid):
+        """Establish the websocket connection and log in with sessionid."""
         # reset the transaction id if we start over
         self.tid = 1
-        self._login_ws()
-
-    @property
-    def locations(self):
-        """Get all available locations"""
-        if not isinstance(self._location_data, list):
-            return None
-
-        return [WFLocation(loc) for loc in self._location_data]
-
-    @property
-    def devices(self):
-        """Get all devices for the current location."""
-
-        if self.locations is None:
-            return None
-
-        target_location = None
-        if isinstance(self.location, int):
-            try:
-                target_location = self.locations[self.location]
-            except IndexError as e:
-                raise WFError(
-                    f"Location index out of range. "
-                    f"Max index is {len(self.locations) - 1}"
-                ) from e
-        else:
-            raise WFError("Unknown location type")
-
-        return target_location.gateways
+        self._connect_ws()
+        data = self._send_login_request(sessionid)
+        raw_locations = self._parse_login_response(data)
+        self._resolve_gwid(raw_locations)
+        self.locations = [WFLocation(loc) for loc in raw_locations]
+        self.devices = self._resolve_devices(self.locations)
 
     def _abort(self, *args, **kwargs):
         _LOGGER.warning("Timeout on websocket request. Aborting websocket")
@@ -462,7 +446,7 @@ class SymphonyGeothermal:
         finally:
             timer.cancel()
 
-    def _ws_send(self, req):
+    def send(self, req):
         """Send a request and return its decoded response.
 
         Bumps tid and translates websocket/JSON failures into
@@ -488,7 +472,7 @@ class SymphonyGeothermal:
             _LOGGER.exception("Unknown exception, socket probably failed")
             raise WFWebsocketClosedError() from e
 
-    def _ws_write(self, **kwargs):
+    def write(self, **kwargs):
         req = {
             "cmd": "write",
             "tid": self.tid,
@@ -498,24 +482,75 @@ class SymphonyGeothermal:
         req.update(kwargs)
 
         _LOGGER.debug("Write req: %s", req)
-        datadecoded = self._ws_send(req)
+        datadecoded = self.send(req)
         _LOGGER.debug("Write resp: %s", datadecoded)
         if datadecoded["err"]:
             raise WFError(datadecoded["err"])
         return datadecoded
 
-    @_with_retry
     def read(self):
         req = copy.deepcopy(DATA_REQUEST)
         req["tid"] = self.tid
         req["awlid"] = self.gwid
 
-        datadecoded = self._ws_send(req)
+        datadecoded = self.send(req)
         _LOGGER.debug("Resp: %s", datadecoded)
         if not datadecoded["err"]:
             return WFReading(datadecoded)
         else:
             raise WFError(datadecoded["err"])
+
+
+class SymphonyGeothermal:
+    def __init__(
+        self,
+        base_url,
+        login_url,
+        ws_url,
+        user,
+        passwd,
+        max_fails=5,
+        device=0,
+        location=0,
+        sessionid=None,
+    ):
+        self.user = user
+        # For retry logic
+        self.max_fails = max_fails
+        self.fails = 0
+        self.locations = None
+        self.devices = None
+        self.gwid = None
+        self.account_id = None
+        self._auth = _AuthSession(base_url, login_url, user, passwd, sessionid)
+        self._transport = _WsTransport(ws_url, device, location)
+        _LOGGER.debug(self)
+
+    def __repr__(self):
+        return f"<Symphony user={self.user}>"
+
+    @property
+    def location(self):
+        return self._transport.location
+
+    @property
+    def device(self):
+        return self._transport.device
+
+    def login(self):
+        self._auth.get_session_id()
+        self._transport.login(self._auth.sessionid)
+        self.locations = self._transport.locations
+        self.devices = self._transport.devices
+        self.gwid = self._transport.gwid
+        self.account_id = self._transport.account_id
+
+    def _ws_write(self, **kwargs):
+        return self._transport.write(**kwargs)
+
+    @_with_retry
+    def read(self):
+        return self._transport.read()
 
     # Deprecated alias kept for backwards compatibility: read() has included
     # retry/relogin behavior since 1.9.3, so read_with_retry is no longer a
@@ -642,7 +677,7 @@ class SymphonyGeothermal:
             WFCredentialError: If not logged in or session invalid
             WFError: If API request fails
         """
-        if not self.sessionid or not self.gwid:
+        if not self._auth.sessionid or not self._transport.gwid:
             raise WFCredentialError("Must login before getting energy data")
 
         # Validate frequency
@@ -662,9 +697,9 @@ class SymphonyGeothermal:
 
         # Build the API URL
         url = (
-            f"{self.base_url}/api/v2/gateway/{self.gwid}/energy"
-            f"?awluserkey={self.account_id}&freq={frequency}&start={start_date}"
-            f"&timezone={timezone_str}&periods={periods}"
+            f"{self._auth.base_url}/api/v2/gateway/{self._transport.gwid}/energy"
+            f"?awluserkey={self._transport.account_id}&freq={frequency}"
+            f"&start={start_date}&timezone={timezone_str}&periods={periods}"
         )
 
         headers = {
@@ -672,7 +707,7 @@ class SymphonyGeothermal:
         }
 
         cookies = {
-            "sessionid": self.sessionid,
+            "sessionid": self._auth.sessionid,
             "legal-acknowledge": "yes",
         }
 

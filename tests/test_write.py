@@ -13,34 +13,34 @@ class TestWsWrite:
 
     def test_sends_correct_json(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client._ws_write(activemode_write=3)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["cmd"] == "write"
         assert sent["source"] == "tstat"
-        assert sent["awlid"] == client.gwid
+        assert sent["awlid"] == client._transport.gwid
         assert sent["activemode_write"] == 3
         assert "tid" in sent
 
     def test_increments_tid(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        tid_before = client.tid
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        tid_before = client._transport.tid
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client._ws_write(activemode_write=0)
-        assert client.tid == (tid_before + 1) % 100
+        assert client._transport.tid == (tid_before + 1) % 100
 
     def test_raises_wferror_on_error_response(
         self, mock_waterfurnace_client, sample_write_error
     ):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_error))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_error))
         with pytest.raises(wf.WFError, match="invalid parameter"):
             client._ws_write(activemode_write=99)
 
     def test_raises_on_websocket_closed(self, mock_waterfurnace_client):
         client = mock_waterfurnace_client
-        client.ws.send = lambda msg: (_ for _ in ()).throw(
+        client._transport.ws.send = lambda msg: (_ for _ in ()).throw(
             websocket.WebSocketConnectionClosedException()
         )
         with pytest.raises(wf.WFWebsocketClosedError):
@@ -50,19 +50,19 @@ class TestWsWrite:
         self, mock_waterfurnace_client, sample_write_success
     ):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         result = client._ws_write(activemode_write=0)
         assert result["data"] == "ok"
 
     def test_tid_not_incremented_on_bad_json(self, mock_waterfurnace_client):
         client = mock_waterfurnace_client
-        tid_before = client.tid
+        tid_before = client._transport.tid
         # Not valid JSON, so _ws_write() should fail before the tid is bumped.
-        client.ws.recv_data.append("not json")
+        client._transport.ws.recv_data.append("not json")
         with pytest.raises(wf.WFWebsocketClosedError):
             client._ws_write(activemode_write=0)
 
-        assert client.tid == tid_before
+        assert client._transport.tid == tid_before
 
 
 class TestSetMode:
@@ -71,10 +71,10 @@ class TestSetMode:
     @pytest.mark.parametrize("mode", [0, 1, 2, 3, 4])
     def test_valid_modes(self, mock_waterfurnace_client, sample_write_success, mode):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_mode(mode)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["cmd"] == "write"
         assert sent["activemode_write"] == mode
 
@@ -97,19 +97,19 @@ class TestSetCoolingSetpoint:
 
     def test_sends_correct_json(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_cooling_setpoint(73)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["cmd"] == "write"
         assert sent["coolingsp_write"] == 73
 
     def test_accepts_float(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_cooling_setpoint(72.5)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["coolingsp_write"] == 72.5
 
     def test_invalid_type(self, mock_waterfurnace_client):
@@ -121,10 +121,10 @@ class TestSetCoolingSetpoint:
         self, mock_waterfurnace_client, sample_write_success, temp
     ):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_cooling_setpoint(temp)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["coolingsp_write"] == temp
 
     @pytest.mark.parametrize("temp", [59, 91])
@@ -144,19 +144,19 @@ class TestSetHeatingSetpoint:
 
     def test_sends_correct_json(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_heating_setpoint(67)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["cmd"] == "write"
         assert sent["heatingsp_write"] == 67
 
     def test_accepts_float(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_heating_setpoint(67.5)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["heatingsp_write"] == 67.5
 
     def test_invalid_type(self, mock_waterfurnace_client):
@@ -168,10 +168,10 @@ class TestSetHeatingSetpoint:
         self, mock_waterfurnace_client, sample_write_success, temp
     ):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_heating_setpoint(temp)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["heatingsp_write"] == temp
 
     @pytest.mark.parametrize("temp", [39, 81])
@@ -191,28 +191,28 @@ class TestSetFanMode:
 
     def test_auto(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_fan_mode(0)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["fanmode_write"] == 0
         assert "intertimeon_write" not in sent
         assert "intertimeoff_write" not in sent
 
     def test_continuous(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_fan_mode(1)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["fanmode_write"] == 1
 
     def test_intermittent(self, mock_waterfurnace_client, sample_write_success):
         client = mock_waterfurnace_client
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_fan_mode(2, intertimeon=5, intertimeoff=10)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["fanmode_write"] == 2
         assert sent["intertimeon_write"] == 5
         assert sent["intertimeoff_write"] == 10
@@ -246,11 +246,11 @@ class TestSetHumidity:
     ):
         client = mock_waterfurnace_client
         # Queue read response then write response
-        client.ws.recv_data.append(json.dumps(sample_reading_data))
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(sample_reading_data))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_humidity(48)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         assert sent["cmd"] == "write"
         assert sent["dehumid_humid_sp"]["humidification"] == 48
         assert sent["dehumid_humid_sp"]["dehumidification"] == 50
@@ -292,11 +292,11 @@ class TestSetHumidity:
                 "humidification_mode": 0,
             },
         }
-        client.ws.recv_data.append(json.dumps(reading_data))
-        client.ws.recv_data.append(json.dumps(sample_write_success))
+        client._transport.ws.recv_data.append(json.dumps(reading_data))
+        client._transport.ws.recv_data.append(json.dumps(sample_write_success))
         client.set_humidity(48)
 
-        sent = json.loads(client.ws.sent_messages[-1])
+        sent = json.loads(client._transport.ws.sent_messages[-1])
         # The typo "humdity_control_option" from the API should be preserved
         assert sent["humidity_offset_settings"]["humdity_control_option"] == 1
         assert sent["humidity_offset_settings"]["humidity_offset"] == 0

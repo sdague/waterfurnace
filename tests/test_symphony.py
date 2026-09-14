@@ -84,8 +84,8 @@ class TestSymphony(unittest.TestCase):
             cookies={"sessionid": mock.sentinel.sessionid}
         )
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
-        w._get_session_id()
-        assert w.sessionid == mock.sentinel.sessionid
+        w._auth._get_session_id()
+        assert w._auth.sessionid == mock.sentinel.sessionid
 
     @mock.patch("requests.get")
     @mock.patch("requests.post")
@@ -99,7 +99,7 @@ class TestSymphony(unittest.TestCase):
             cookies={"sessionid": mock.sentinel.sessionid}
         )
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
-        w._get_session_id()
+        w._auth._get_session_id()
 
         _, post_kwargs = mock_req.call_args
         assert post_kwargs["data"]["_token"] == "real-token"
@@ -111,18 +111,18 @@ class TestSymphony(unittest.TestCase):
         mock_get.return_value = FakeRequest(text="<html>no token here</html>")
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
         with pytest.raises(wf.WFError):
-            w._get_session_id()
+            w._auth._get_session_id()
         mock_req.assert_not_called()
 
     @mock.patch("requests.get")
     def test_check_session_id_success(self, mock_get):
         mock_get.return_value = FakeRequest(json_data={"emailaddress": "a@example.com"})
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
-        w.sessionid = "existing-session"
-        w._check_session_id()
+        w._auth.sessionid = "existing-session"
+        w._auth._check_session_id()
 
         get_args, get_kwargs = mock_get.call_args
-        assert get_args[0] == f"{w.base_url}/user"
+        assert get_args[0] == f"{w._auth.base_url}/user"
         assert get_kwargs["cookies"]["sessionid"] == "existing-session"
 
     @mock.patch("requests.get")
@@ -130,9 +130,9 @@ class TestSymphony(unittest.TestCase):
         # Server returns valid JSON, but not the shape we expect.
         mock_get.return_value = FakeRequest(json_data={"err": "Not found."})
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
-        w.sessionid = "existing-session"
+        w._auth.sessionid = "existing-session"
         with pytest.raises(wf.WFCredentialError):
-            w._check_session_id()
+            w._auth._check_session_id()
 
     @mock.patch("requests.get")
     def test_check_session_id_non_json_response(self, mock_get):
@@ -141,9 +141,9 @@ class TestSymphony(unittest.TestCase):
         # regardless of which URL is actually in use.
         mock_get.return_value = FakeRequest(content="<html>404</html>")
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
-        w.sessionid = "existing-session"
+        w._auth.sessionid = "existing-session"
         with pytest.raises(wf.WFCredentialError):
-            w._check_session_id()
+            w._auth._check_session_id()
 
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
@@ -167,9 +167,9 @@ class TestSymphony(unittest.TestCase):
         mock_ws_create.return_value = m_ws
 
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
-        w.sessionid = "stale-session"
+        w._auth.sessionid = "stale-session"
         w.login()
-        assert w.sessionid == str(mock.sentinel.new_sessionid)
+        assert w._auth.sessionid == str(mock.sentinel.new_sessionid)
 
     @mock.patch("websocket.create_connection")
     @mock.patch("websocket.recv")
@@ -277,7 +277,7 @@ class TestSymphony(unittest.TestCase):
 
         w = wf.WaterFurnace(str(mock.sentinel.email), str(mock.sentinel.passwd))
         w.login()
-        assert w.account_id == 1234
+        assert w._transport.account_id == 1234
 
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
@@ -306,7 +306,7 @@ class TestSymphony(unittest.TestCase):
         w.read()
         w.read()
         w.read()
-        assert w.tid == 5
+        assert w._transport.tid == 5
 
 
 class TestReadData(unittest.TestCase):
@@ -448,13 +448,13 @@ class TestReadData(unittest.TestCase):
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd, max_fails=0)
         w.login()
 
-        tid_before = w.tid
+        tid_before = w._transport.tid
         # Not valid JSON, so read() should fail before the tid is bumped.
         m_ws.recv.return_value = "not json"
         with pytest.raises(wf.WFWebsocketClosedError):
             w.read()
 
-        assert w.tid == tid_before
+        assert w._transport.tid == tid_before
 
     @mock.patch("time.sleep")
     @mock.patch("websocket.create_connection")
@@ -778,9 +778,15 @@ class TestSymphonyLocationMethods:
         symphony = self._create_symphony_instance()
         assert symphony.locations is None
 
-    def test_locations_returns_list(self):
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_locations_returns_list(self, mock_req, mock_get, mock_ws_create):
         """Test locations is a list of WFLocation objects."""
-        symphony = self._create_symphony_instance()
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
         loc_data = [
             {
                 "description": "Home",
@@ -791,7 +797,15 @@ class TestSymphonyLocationMethods:
                 "gateways": [{"gwid": "gw-2"}],
             },
         ]
-        symphony._location_data = loc_data
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps(
+            {"err": "", "key": 1234, "locations": loc_data}
+        )
+        mock_ws_create.return_value = m_ws
+
+        symphony = self._create_symphony_instance()
+        symphony.login()
+
         assert len(symphony.locations) == 2
         assert all(isinstance(loc, wf.WFLocation) for loc in symphony.locations)
 
@@ -801,9 +815,15 @@ class TestSymphonyLocationMethods:
 
         assert symphony.devices is None
 
-    def test_devices_is_list(self):
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_devices_is_list(self, mock_req, mock_get, mock_ws_create):
         """Test devices is a list of WFGateway objects."""
-        symphony = self._create_symphony_instance(location=0)
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
         loc_data = {
             "description": "Home",
             "gateways": [
@@ -811,7 +831,14 @@ class TestSymphonyLocationMethods:
                 {"gwid": "gw-2", "description": "Device 2"},
             ],
         }
-        symphony._location_data = [loc_data]
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps(
+            {"err": "", "key": 1234, "locations": [loc_data]}
+        )
+        mock_ws_create.return_value = m_ws
+
+        symphony = self._create_symphony_instance(location=0)
+        symphony.login()
         devices = symphony.devices
 
         assert len(devices) == 2
@@ -819,17 +846,31 @@ class TestSymphonyLocationMethods:
         assert devices[0].gwid == "gw-1"
         assert devices[1].gwid == "gw-2"
 
-    def test_devices_no_devices_in_location(self):
-        """Test devices with location that has no devices."""
-        symphony = self._create_symphony_instance(location=0)
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_fails_for_location_with_no_devices(
+        self, mock_req, mock_get, mock_ws_create
+    ):
+        """Login raises if the selected location has no gateways to resolve."""
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
         loc_data = {"description": "Home", "gateways": []}
-        symphony._location_data = [loc_data]
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps(
+            {"err": "", "key": 1234, "locations": [loc_data]}
+        )
+        mock_ws_create.return_value = m_ws
 
-        assert symphony.devices == []
+        symphony = self._create_symphony_instance(location=0)
+        with pytest.raises(wf.WFError, match="Device index out of range"):
+            symphony.login()
 
 
 class TestResolveByIndexOrMatch:
-    """Tests for SymphonyGeothermal._resolve_by_index_or_match."""
+    """Tests for _WsTransport._resolve_by_index_or_match."""
 
     ITEMS = [{"gwid": "gw-1", "description": "Home"}, {"gwid": "gw-2"}]
 
@@ -838,37 +879,37 @@ class TestResolveByIndexOrMatch:
         return item.get("gwid") == selector or item.get("description") == selector
 
     def test_resolves_by_int_index(self):
-        item = wf.SymphonyGeothermal._resolve_by_index_or_match(
+        item = wf._WsTransport._resolve_by_index_or_match(
             1, self.ITEMS, "Device", self._match
         )
         assert item == self.ITEMS[1]
 
     def test_int_index_out_of_range_raises(self):
         with pytest.raises(wf.WFError, match="Device index out of range"):
-            wf.SymphonyGeothermal._resolve_by_index_or_match(
+            wf._WsTransport._resolve_by_index_or_match(
                 5, self.ITEMS, "Device", self._match
             )
 
     def test_resolves_by_string_match(self):
-        item = wf.SymphonyGeothermal._resolve_by_index_or_match(
+        item = wf._WsTransport._resolve_by_index_or_match(
             "gw-2", self.ITEMS, "Device", self._match
         )
         assert item == self.ITEMS[1]
 
     def test_resolves_by_string_match_secondary_field(self):
-        item = wf.SymphonyGeothermal._resolve_by_index_or_match(
+        item = wf._WsTransport._resolve_by_index_or_match(
             "Home", self.ITEMS, "Device", self._match
         )
         assert item == self.ITEMS[0]
 
     def test_string_no_match_raises(self):
         with pytest.raises(wf.WFError, match="Unable to find device: nope"):
-            wf.SymphonyGeothermal._resolve_by_index_or_match(
+            wf._WsTransport._resolve_by_index_or_match(
                 "nope", self.ITEMS, "Device", self._match
             )
 
     def test_invalid_selector_type_raises(self):
         with pytest.raises(wf.WFError, match="Unknown device type"):
-            wf.SymphonyGeothermal._resolve_by_index_or_match(
+            wf._WsTransport._resolve_by_index_or_match(
                 3.5, self.ITEMS, "Device", self._match
             )
