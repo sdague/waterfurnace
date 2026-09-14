@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.6] - 2026-09-14
 
 ### Changed
 - Split `waterfurnace/waterfurnace.py` (previously ~1030 lines mixing six
