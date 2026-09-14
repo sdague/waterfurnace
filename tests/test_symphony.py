@@ -3,6 +3,7 @@
 """Tests for `waterfurnace` package."""
 
 import json
+import logging
 import unittest
 from unittest import mock
 
@@ -144,6 +145,32 @@ class TestSymphony(unittest.TestCase):
         w._auth.sessionid = "existing-session"
         with pytest.raises(wf.WFCredentialError):
             w._auth._check_session_id()
+
+    @mock.patch("requests.get")
+    def test_check_session_id_expiry_not_logged_as_error(self, mock_get):
+        # An expired/invalid session is routine and the caller recovers via
+        # a fresh login, so it must not be logged at ERROR level.
+        mock_get.return_value = FakeRequest(content="<html>404</html>")
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        w._auth.sessionid = "existing-session"
+        transport_logger = logging.getLogger("waterfurnace.transport")
+        with self.assertNoLogs(transport_logger, level=logging.ERROR):
+            with pytest.raises(wf.WFCredentialError):
+                w._auth._check_session_id()
+
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_get_session_id_recovers_after_expired_session(self, mock_post, mock_get):
+        # get_session_id() still recovers via a fresh login even though the
+        # expired-session check no longer logs at ERROR level.
+        mock_get.side_effect = [FakeRequest(content="<html>404</html>"), FakeRequest()]
+        mock_post.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.new_sessionid)}
+        )
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
+        w._auth.sessionid = "stale-session"
+        w._auth.get_session_id()
+        assert w._auth.sessionid == str(mock.sentinel.new_sessionid)
 
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
@@ -757,6 +784,115 @@ class TestEnergyData(unittest.TestCase):
         with pytest.raises(wf.WFNoDataError):
             w.get_energy_data("2026-01-03", "2026-01-04")
 
+    def _make_http_error(self, status_code):
+        response = mock.MagicMock()
+        response.status_code = status_code
+        error = requests.exceptions.HTTPError(f"{status_code} error")
+        error.response = response
+        return error
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_401_refreshes_session_and_retries(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """A 401 refreshes the session once and succeeds on retry."""
+        # Login mocks: CSRF-token page fetch, then login POST.
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        fake_energy_response = {
+            "columns": ["total_power"],
+            "index": [1767578400000],
+            "data": [[0.46]],
+        }
+        success_response = mock.MagicMock()
+        success_response.json.return_value = fake_energy_response
+        success_response.text = "some content"
+        success_response.raise_for_status = mock.MagicMock()
+
+        failed_response = mock.MagicMock()
+        failed_response.raise_for_status.side_effect = self._make_http_error(401)
+
+        # requests.get sequence: login-page fetch, first energy request
+        # (401), session-refresh /user check, second energy request
+        # (succeeds).
+        mock_get.side_effect = [
+            FakeRequest(),
+            failed_response,
+            FakeRequest(json_data={"emailaddress": "test@example.com"}),
+            success_response,
+        ]
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        energy_data = w.get_energy_data("2026-01-03", "2026-01-04")
+
+        assert isinstance(energy_data, wf.WFEnergyData)
+        assert len(energy_data) == 1
+        assert mock_get.call_count == 4
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_401_retry_also_fails_raises_credential_error(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """A 401 that persists after a session refresh raises WFCredentialError."""
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        failed_response = mock.MagicMock()
+        failed_response.raise_for_status.side_effect = self._make_http_error(401)
+        retry_failed_response = mock.MagicMock()
+        retry_failed_response.raise_for_status.side_effect = self._make_http_error(401)
+
+        mock_get.side_effect = [
+            FakeRequest(),
+            failed_response,
+            FakeRequest(json_data={"emailaddress": "test@example.com"}),
+            retry_failed_response,
+        ]
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(wf.WFCredentialError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
+
+        assert mock_get.call_count == 4
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_500_does_not_retry(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """A non-auth HTTP error still raises WFError without retrying."""
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        failed_response = mock.MagicMock()
+        failed_response.raise_for_status.side_effect = self._make_http_error(500)
+        mock_get.side_effect = [FakeRequest(), failed_response]
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(wf.WFError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
+
+        # Login page fetch + one energy request attempt, no retry.
+        assert mock_get.call_count == 2
+
 
 class TestSymphonyLocationMethods:
     """Tests for locations and devices properties in SymphonyGeothermal."""
@@ -913,3 +1049,46 @@ class TestResolveByIndexOrMatch:
             wf._WsTransport._resolve_by_index_or_match(
                 3.5, self.ITEMS, "Device", self._match
             )
+
+
+def test_public_names_reexported_from_waterfurnace_module():
+    """Guard against a future split silently dropping a public re-export.
+
+    Every name previously defined directly in waterfurnace.py (now split
+    across const.py/models.py/transport.py) must stay importable from
+    waterfurnace.waterfurnace, since Home Assistant's integration and this
+    package's own CLI/tests depend on it.
+    """
+    expected_names = [
+        "ACTIVE_MODE",
+        "ActiveSettings",
+        "DATA_REQUEST",
+        "ERROR_INTERVAL",
+        "FAILED_LOGIN",
+        "FAN_MODE",
+        "FURNACE_MODE",
+        "GS_BASE_URL",
+        "GS_LOGIN_URL",
+        "GS_WS_URL",
+        "GeoStar",
+        "SymphonyGeothermal",
+        "TIMEOUT",
+        "USER_AGENT",
+        "WFCredentialError",
+        "WFEnergyData",
+        "WFEnergyReading",
+        "WFError",
+        "WFException",
+        "WFGateway",
+        "WFLocation",
+        "WFNoDataError",
+        "WFReading",
+        "WFWebsocketClosedError",
+        "WF_BASE_URL",
+        "WF_LOGIN_URL",
+        "WF_WS_URL",
+        "WRITE_FIELD_SPECS",
+        "WaterFurnace",
+    ]
+    for name in expected_names:
+        assert hasattr(wf, name), f"waterfurnace.waterfurnace.{name} is missing"

@@ -255,33 +255,12 @@ class SymphonyGeothermal:
             },
         )
 
-    def get_energy_data(
-        self, start_date, end_date, frequency="1H", timezone_str="America/New_York"
-    ):
-        """Get energy data for a date range.
+    def _request_energy_data(self, start_date, end_date, frequency, timezone_str):
+        """Fetch and parse one energy-data response.
 
-        Args:
-            start_date: Start date as string in YYYY-MM-DD format
-            end_date: End date as string in YYYY-MM-DD format
-            frequency: Data frequency - "1D" (daily),
-                       "1H" (hourly), or "15min" (15 minutes)
-            timezone_str: Timezone string (e.g., "America/New_York")
-
-        Returns:
-            WFEnergyData object containing energy readings
-
-        Raises:
-            WFCredentialError: If not logged in or session invalid
-            WFError: If API request fails
+        Raises requests.exceptions.HTTPError (uncaught) so callers can
+        inspect the status code to decide whether a retry makes sense.
         """
-        if not self._auth.sessionid or not self._transport.gwid:
-            raise WFCredentialError("Must login before getting energy data")
-
-        # Validate frequency
-        valid_frequencies = ["1D", "1H", "15min"]
-        if frequency not in valid_frequencies:
-            raise ValueError(f"Invalid frequency. Must be one of {valid_frequencies}")
-
         # The API takes a number of periods counting forward from start,
         # rather than an end date, so convert the date range to a count.
         seconds_per_period = {"1D": 86400, "1H": 3600, "15min": 900}
@@ -310,32 +289,83 @@ class SymphonyGeothermal:
 
         _LOGGER.debug(f"Requesting energy data from: {url}")
 
-        try:
-            res = requests.get(
-                url,
-                headers=headers,
-                cookies=cookies,
-                timeout=TIMEOUT,
+        res = requests.get(
+            url,
+            headers=headers,
+            cookies=cookies,
+            timeout=TIMEOUT,
+        )
+        res.raise_for_status()
+        if not res.text.strip():
+            raise WFNoDataError(
+                f"No energy data available for {start_date} to {end_date}"
             )
-            res.raise_for_status()
-            if not res.text.strip():
-                raise WFNoDataError(
-                    f"No energy data available for {start_date} to {end_date}"
+        data = res.json()
+        _LOGGER.debug(f"Received energy data: {len(data.get('index', []))} records")
+        return WFEnergyData(data)
+
+    def get_energy_data(
+        self, start_date, end_date, frequency="1H", timezone_str="America/New_York"
+    ):
+        """Get energy data for a date range.
+
+        Args:
+            start_date: Start date as string in YYYY-MM-DD format
+            end_date: End date as string in YYYY-MM-DD format
+            frequency: Data frequency - "1D" (daily),
+                       "1H" (hourly), or "15min" (15 minutes)
+            timezone_str: Timezone string (e.g., "America/New_York")
+
+        Returns:
+            WFEnergyData object containing energy readings
+
+        Raises:
+            WFCredentialError: If not logged in, or if the session has
+                expired and a refresh-and-retry also fails to authenticate
+            WFError: If API request fails
+        """
+        if not self._auth.sessionid or not self._transport.gwid:
+            raise WFCredentialError("Must login before getting energy data")
+
+        # Validate frequency
+        valid_frequencies = ["1D", "1H", "15min"]
+        if frequency not in valid_frequencies:
+            raise ValueError(f"Invalid frequency. Must be one of {valid_frequencies}")
+
+        retried = False
+        while True:
+            try:
+                return self._request_energy_data(
+                    start_date, end_date, frequency, timezone_str
                 )
-            data = res.json()
-            _LOGGER.debug(f"Received energy data: {len(data.get('index', []))} records")
-            return WFEnergyData(data)
-        except WFNoDataError:
-            raise
-        except requests.exceptions.HTTPError as e:
-            _LOGGER.exception(f"HTTP error getting energy data: {e}")
-            raise WFError(f"Failed to get energy data: {e}") from e
-        except requests.exceptions.RequestException as e:
-            _LOGGER.exception(f"Request error getting energy data: {e}")
-            raise WFError(f"Failed to get energy data: {e}") from e
-        except (ValueError, KeyError) as e:
-            _LOGGER.exception(f"Error parsing energy data response: {e}")
-            raise WFError(f"Invalid energy data response: {e}") from e
+            except WFNoDataError:  # noqa: PERF203
+                raise
+            except requests.exceptions.HTTPError as e:
+                is_auth_failure = e.response is not None and e.response.status_code in (
+                    401,
+                    403,
+                )
+                if not is_auth_failure:
+                    _LOGGER.exception(f"HTTP error getting energy data: {e}")
+                    raise WFError(f"Failed to get energy data: {e}") from e
+                if retried:
+                    _LOGGER.error(
+                        "Session refresh did not resolve energy data "
+                        "authentication failure"
+                    )
+                    raise WFCredentialError() from e
+
+                _LOGGER.debug(
+                    "Session expired getting energy data, refreshing and retrying once"
+                )
+                self._auth.get_session_id()
+                retried = True
+            except requests.exceptions.RequestException as e:
+                _LOGGER.exception(f"Request error getting energy data: {e}")
+                raise WFError(f"Failed to get energy data: {e}") from e
+            except (ValueError, KeyError) as e:
+                _LOGGER.exception(f"Error parsing energy data response: {e}")
+                raise WFError(f"Invalid energy data response: {e}") from e
 
 
 class WaterFurnace(SymphonyGeothermal):

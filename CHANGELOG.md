@@ -22,6 +22,21 @@
   `requests` response, so the check never matched and the code fell through
   to a `TypeError` instead of distinguishing bad credentials from other
   login failures.
+- `get_energy_data()` no longer requires the caller to detect and recover
+  from an expired session itself. On a 401/403 it now refreshes the session
+  once (via `get_session_id()`) and retries the request; if the retry also
+  fails authentication, it raises `WFCredentialError` instead of the
+  generic `WFError` it previously raised for every HTTP error. Reported by
+  a Home Assistant user who had hand-rolled a similar re-login-and-retry
+  workaround in their own integration code.
+- An expired session detected by `_check_session_id()` (routine, since the
+  caller always falls back to a fresh login) is no longer logged at ERROR
+  level with a full traceback. This previously made a normal session
+  refresh look like a crash in Home Assistant's logs. The traceback is
+  still available at DEBUG level. Also dropped a redundant second
+  `_LOGGER.exception()` call in `_get_session_id()` for bad credentials —
+  the same traceback was already logged once, a few lines above, by the
+  `KeyError` handler that catches the missing session cookie.
 
 ## [1.9.5] - 2026-09-14
 

@@ -75,10 +75,10 @@ class _AuthSession:
         except (KeyError, ValueError) as e:
             # ValueError covers requests' JSONDecodeError, raised when the
             # server returns a non-JSON body (e.g. an HTML 404 page) instead
-            # of the expected user payload.
-            _LOGGER.exception(
-                "Existing session is not valid A lot of debug info coming..."
-            )
+            # of the expected user payload. Session expiry is routine and
+            # the caller recovers via a fresh login, so this isn't logged
+            # at ERROR level.
+            _LOGGER.debug("Existing session is not valid A lot of debug info coming...")
             _LOGGER.debug("Response: %s", res)
             _LOGGER.debug("Response Cookies: %s", res.cookies)
             _LOGGER.debug("Response Content: %s", res.content)
@@ -139,7 +139,7 @@ class _AuthSession:
             _LOGGER.debug("Response Cookies: %s", res.cookies)
             _LOGGER.debug("Response Content: %s", res.content)
             if FAILED_LOGIN.encode() in res.content:
-                _LOGGER.exception(
+                _LOGGER.error(
                     "Failed to log in, are you sure your user / password are correct"
                 )
                 raise WFCredentialError() from e
