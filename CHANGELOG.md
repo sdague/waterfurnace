@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Changed
+- Split `waterfurnace/waterfurnace.py` (previously ~1030 lines mixing six
+  concerns) into four modules: `const.py` (constants and exception classes),
+  `models.py` (passive data classes: `WFReading`, `WFEnergyData`,
+  `WFGateway`, etc.), `transport.py` (`_AuthSession` and `_WsTransport`), and
+  `waterfurnace.py` itself (now just `SymphonyGeothermal`/`WaterFurnace`/
+  `GeoStar` and the `_with_retry` decorator). This is a pure code move with
+  no behavior change: every previously public name is still importable from
+  `waterfurnace.waterfurnace` for backwards compatibility. One visible
+  effect: log records emitted by the moved `_AuthSession`/`_WsTransport`
+  code now come from the `waterfurnace.transport` logger instead of
+  `waterfurnace.waterfurnace`.
+
 ### Fixed
 - Bad login credentials now correctly raise `WFCredentialError` instead of
   an uncaught `TypeError`. The login-failure check compared the

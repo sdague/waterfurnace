@@ -1,143 +1,77 @@
 """Main module."""
 
-import contextlib
-import copy
 import functools
-import json
 import logging
-import re
-import ssl
-import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 
 import requests
-import websocket
+
+from .const import (
+    ACTIVE_MODE,
+    DATA_REQUEST,
+    ERROR_INTERVAL,
+    FAILED_LOGIN,
+    FAN_MODE,
+    FURNACE_MODE,
+    GS_BASE_URL,
+    GS_LOGIN_URL,
+    GS_WS_URL,
+    TIMEOUT,
+    USER_AGENT,
+    WF_BASE_URL,
+    WF_LOGIN_URL,
+    WF_WS_URL,
+    WRITE_FIELD_SPECS,
+    WFCredentialError,
+    WFError,
+    WFException,
+    WFNoDataError,
+    WFWebsocketClosedError,
+)
+from .models import (
+    ActiveSettings,
+    WFEnergyData,
+    WFEnergyReading,
+    WFGateway,
+    WFLocation,
+    WFReading,
+)
+from .transport import _AuthSession, _WsTransport
+
+__all__ = [
+    "ACTIVE_MODE",
+    "ActiveSettings",
+    "DATA_REQUEST",
+    "ERROR_INTERVAL",
+    "FAILED_LOGIN",
+    "FAN_MODE",
+    "FURNACE_MODE",
+    "GS_BASE_URL",
+    "GS_LOGIN_URL",
+    "GS_WS_URL",
+    "GeoStar",
+    "SymphonyGeothermal",
+    "TIMEOUT",
+    "USER_AGENT",
+    "WFCredentialError",
+    "WFEnergyData",
+    "WFEnergyReading",
+    "WFError",
+    "WFException",
+    "WFGateway",
+    "WFLocation",
+    "WFNoDataError",
+    "WFReading",
+    "WFWebsocketClosedError",
+    "WF_BASE_URL",
+    "WF_LOGIN_URL",
+    "WF_WS_URL",
+    "WRITE_FIELD_SPECS",
+    "WaterFurnace",
+]
 
 _LOGGER = logging.getLogger(__name__)
-
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0"
-WF_BASE_URL = "https://symphony.mywaterfurnace.com"
-WF_LOGIN_URL = f"{WF_BASE_URL}/account/login"
-WF_WS_URL = "wss://awlclientproxy.mywaterfurnace.com/"
-GS_BASE_URL = "https://symphony.mygeostar.com"
-GS_LOGIN_URL = f"{GS_BASE_URL}/account/login"
-GS_WS_URL = "wss://awlclientproxy.mygeostar.com/"
-
-FURNACE_MODE = (
-    "Standby",
-    "Fan Only",
-    "Cooling 1",
-    "Cooling 2",
-    "Reheat",
-    "Heating 1",
-    "Heating 2",
-    "E-Heat",
-    "Aux Heat",
-    "Lockout",
-)
-
-ACTIVE_MODE = (
-    "Off",
-    "Auto",
-    "Cool",
-    "Heat",
-    "E-Heat",
-)
-
-FAN_MODE = (
-    "Auto",
-    "Continuous",
-    "Intermittent",
-)
-
-FAILED_LOGIN = (
-    "Your login failed. Please check your email address / password and try again."
-)
-
-TIMEOUT = 30
-ERROR_INTERVAL = 300
-
-# Range specs for the scalar arguments accepted by the set_* write methods.
-# "type" is always a tuple of the exact types accepted; bool is deliberately
-# never included, since bool is a subclass of int and would otherwise pass
-# an int-only check as if True/False were 1/0.
-WRITE_FIELD_SPECS = {
-    "mode": {"min": 0, "max": 4, "type": (int,)},
-    "cooling_setpoint": {"min": 60, "max": 90, "type": (int, float)},
-    "heating_setpoint": {"min": 40, "max": 80, "type": (int, float)},
-    "fan_mode": {"min": 0, "max": 2, "type": (int,)},
-    "humidity": {"min": 15, "max": 95, "type": (int,)},
-    "intertimeon": {"min": 1, "max": 60, "type": (int,)},
-    "intertimeoff": {"min": 1, "max": 60, "type": (int,)},
-}
-
-DATA_REQUEST = {
-    "cmd": "read",
-    "tid": None,
-    "awlid": None,
-    "zone": 0,
-    "rlist": [  # the list of sensors to return readings for
-        "compressorpower",
-        "fanpower",
-        "auxpower",
-        "looppumppower",
-        "totalunitpower",
-        "AWLABCType",
-        "ModeOfOperation",
-        "ActualCompressorSpeed",
-        "AirflowCurrentSpeed",
-        "AuroraOutputEH1",
-        "AuroraOutputEH2",
-        "AuroraOutputCC",
-        "AuroraOutputCC2",
-        "TStatDehumidSetpoint",
-        "TStatHumidSetpoint",
-        "TStatRelativeHumidity",
-        "LeavingAirTemp",
-        "TStatRoomTemp",
-        "EnteringWaterTemp",
-        "AOCEnteringWaterTemp",
-        "LeavingWaterTemp",
-        "WaterFlowRate",
-        "lockoutstatus",
-        "lastfault",
-        "lastlockout",
-        "humidity_offset_settings",
-        "humidity",
-        "outdoorair",
-        "homeautomationalarm1",
-        "homeautomationalarm2",
-        "roomtemp",
-        "activesettings",
-        "TStatActiveSetpoint",
-        "TStatMode",
-        "TStatHeatingSetpoint",
-        "TStatCoolingSetpoint",
-        "AWLTStatType",
-    ],
-    "source": "consumer dashboard",
-}
-
-
-class WFException(Exception):
-    pass
-
-
-class WFCredentialError(WFException):
-    pass
-
-
-class WFWebsocketClosedError(WFException):
-    pass
-
-
-class WFError(WFException):
-    pass
-
-
-class WFNoDataError(WFException):
-    pass
 
 
 def _with_retry(func):
@@ -170,335 +104,6 @@ def _with_retry(func):
         raise WFWebsocketClosedError("Failed to refresh credentials after retries")
 
     return wrapper
-
-
-class _AuthSession:
-    """Owns the HTTP session-id: obtaining, validating, and holding it.
-
-    Pure HTTP concern, with no knowledge of the websocket connection that
-    the session id is later used to authenticate.
-    """
-
-    def __init__(self, base_url, login_url, user, passwd, sessionid=None):
-        self.base_url = base_url
-        self.login_url = login_url
-        self.user = user
-        self.passwd = passwd
-        self.sessionid = sessionid
-
-    def get_session_id(self):
-        """Ensure self.sessionid is set to a valid session, refreshing if needed."""
-        if self.sessionid:
-            try:
-                self._check_session_id()
-            except WFCredentialError:
-                self._get_session_id()
-        else:
-            self._get_session_id()
-
-    def _check_session_id(self):
-        """Verify self.sessionid is still valid.
-
-        Raises WFCredentialError if the session has expired or the server's
-        response can't be parsed as the expected user payload, so callers
-        can fall back to a fresh login.
-        """
-        _LOGGER.debug("Checking existing session.")
-        headers = {
-            "user-agent": USER_AGENT,
-        }
-        res = requests.get(
-            f"{self.base_url}/user",
-            headers=headers,
-            cookies={
-                "legal-acknowledge": "yes",
-                "sessionid": self.sessionid,
-            },
-            timeout=TIMEOUT,
-            allow_redirects=False,
-        )
-        try:
-            res.json()["emailaddress"]
-        except (KeyError, ValueError) as e:
-            # ValueError covers requests' JSONDecodeError, raised when the
-            # server returns a non-JSON body (e.g. an HTML 404 page) instead
-            # of the expected user payload.
-            _LOGGER.exception(
-                "Existing session is not valid A lot of debug info coming..."
-            )
-            _LOGGER.debug("Response: %s", res)
-            _LOGGER.debug("Response Cookies: %s", res.cookies)
-            _LOGGER.debug("Response Content: %s", res.content)
-            raise WFCredentialError() from e
-
-    def _get_session_id(self):
-        headers = {
-            "user-agent": USER_AGENT,
-        }
-        cookies = {
-            "legal-acknowledge": "yes",
-            "energy-base-price": "0.15",
-            "temp_unit": "f",
-        }
-
-        # The login form is now protected by a Laravel CSRF token, so we
-        # have to load the login page first to obtain it.
-        login_page = requests.get(
-            self.login_url,
-            headers=headers,
-            cookies=cookies,
-            timeout=TIMEOUT,
-        )
-        login_page.raise_for_status()
-        match = re.search(
-            r'<input[^>]*name="_token"[^>]*value="([^"]+)"', login_page.text
-        ) or re.search(r'<input[^>]*value="([^"]+)"[^>]*name="_token"', login_page.text)
-        if not match:
-            _LOGGER.debug("Login page content: %s", login_page.text)
-            raise WFError("Unable to find CSRF token on login page")
-        token = match.group(1)
-        cookies.update(dict(login_page.cookies))
-
-        data = dict(
-            emailaddress=self.user,
-            password=self.passwd,
-            op="login",
-            redirect="/",
-            _token=token,
-        )
-
-        res = requests.post(
-            self.login_url,
-            data=data,
-            headers=headers,
-            cookies=cookies,
-            timeout=TIMEOUT,
-            allow_redirects=False,
-        )
-        try:
-            self.sessionid = res.cookies["sessionid"]
-        except KeyError as e:
-            _LOGGER.exception(
-                "Did not find expected session cookie, login failed."
-                " A lot of debug info coming..."
-            )
-            _LOGGER.debug("Response: %s", res)
-            _LOGGER.debug("Response Cookies: %s", res.cookies)
-            _LOGGER.debug("Response Content: %s", res.content)
-            if FAILED_LOGIN.encode() in res.content:
-                _LOGGER.exception(
-                    "Failed to log in, are you sure your user / password are correct"
-                )
-                raise WFCredentialError() from e
-            else:
-                raise WFError() from e
-
-
-class _WsTransport:
-    """Owns the websocket connection: login handshake, read, and write.
-
-    Holds tid, ws, gwid, account_id, and the resolved location data, all of
-    which only make sense in the context of an established websocket
-    session.
-    """
-
-    def __init__(self, ws_url, device=0, location=0):
-        self.ws_url = ws_url
-        self.device = device
-        self.location = location
-        self.ws = None
-        self.gwid = None
-        self.tid = 0
-        self.locations = None
-        self.devices = None
-        # Unique ID for the account, regardless of email changes.
-        self.account_id = None
-
-    def next_tid(self):
-        self.tid = (self.tid + 1) % 100
-
-    @staticmethod
-    def _resolve_by_index_or_match(selector, items, kind, match):
-        """Resolve an item from a list by integer index or string match.
-
-        Args:
-            selector: An int index into items, or a str to find via match.
-            items: The list to resolve from.
-            kind: Human-readable name of what's being resolved, for errors.
-            match: Callable(item, selector) -> bool, used when selector is a str.
-        """
-        if isinstance(selector, int):
-            try:
-                return items[selector]
-            except IndexError as e:
-                raise WFError(
-                    f"{kind} index out of range. Max index is {len(items) - 1}"
-                ) from e
-        elif isinstance(selector, str):
-            for item in items:
-                if match(item, selector):
-                    return item
-            raise WFError(f"Unable to find {kind.lower()}: {selector}")
-        else:
-            raise WFError(
-                f"Unknown {kind.lower()} type ({type(selector)}): {selector}. "
-                f"Should be int or str"
-            )
-
-    def _connect_ws(self):
-        # The following is needed to allow legacy negotiation because
-        # WF is kind of slow in updating infrastructure
-        ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-        ctx.options |= 0x4  # OP_LEGACY_SERVER_CONNECT
-        sslopt = {"context": ctx}
-
-        self.ws = websocket.create_connection(
-            self.ws_url, timeout=TIMEOUT, sslopt=sslopt
-        )
-
-    def _send_login_request(self, sessionid):
-        login = {
-            "cmd": "login",
-            "tid": self.tid,
-            "source": "consumer dashboard",
-            "sessionid": sessionid,
-        }
-        return self.send(login)
-
-    def _parse_login_response(self, data):
-        """Pull account_id/locations out of a decoded login response."""
-        _LOGGER.debug("Login response: %s", data)
-        try:
-            if data["err"]:
-                raise WFError(data["err"])
-            account_id = data["key"]
-            locations = data["locations"]
-        except KeyError as e:
-            _LOGGER.exception("Login response missing expected field: %s", data)
-            raise WFWebsocketClosedError() from e
-
-        self.account_id = account_id
-        return locations
-
-    def _resolve_gwid(self, locations):
-        """Resolve self.location/self.device against locations and set gwid."""
-        location = self._resolve_by_index_or_match(
-            self.location,
-            locations,
-            "Location",
-            match=lambda item, selector: item.get("description") == selector,
-        )
-
-        try:
-            gateways = location["gateways"]
-        except KeyError as e:
-            _LOGGER.exception(
-                "Location missing expected 'gateways' field: %s", location
-            )
-            raise WFWebsocketClosedError() from e
-
-        device = self._resolve_by_index_or_match(
-            self.device,
-            gateways,
-            "Device",
-            match=lambda item, selector: (
-                item.get("gwid") == selector or item.get("description") == selector
-            ),
-        )
-
-        self.gwid = device["gwid"]
-
-    def _resolve_devices(self, locations):
-        """Resolve self.location against locations and return its WFGateways."""
-        target_location = self._resolve_by_index_or_match(
-            self.location,
-            locations,
-            "Location",
-            match=lambda item, selector: item.description == selector,
-        )
-        return target_location.gateways
-
-    def login(self, sessionid):
-        """Establish the websocket connection and log in with sessionid."""
-        # reset the transaction id if we start over
-        self.tid = 1
-        self._connect_ws()
-        data = self._send_login_request(sessionid)
-        raw_locations = self._parse_login_response(data)
-        self._resolve_gwid(raw_locations)
-        self.locations = [WFLocation(loc) for loc in raw_locations]
-        self.devices = self._resolve_devices(self.locations)
-
-    def _abort(self, *args, **kwargs):
-        _LOGGER.warning("Timeout on websocket request. Aborting websocket")
-        try:
-            self.ws.abort()
-        except Exception:
-            _LOGGER.exception("Can't abort, this might be interesting....")
-
-    @contextlib.contextmanager
-    def _ws_abort_timer(self):
-        """Abort the websocket if the enclosed block doesn't finish in time."""
-        timer = threading.Timer(10.0, self._abort, [self])
-        timer.start()
-        try:
-            yield
-        finally:
-            timer.cancel()
-
-    def send(self, req):
-        """Send a request and return its decoded response.
-
-        Bumps tid and translates websocket/JSON failures into
-        WFWebsocketClosedError.
-        """
-        _LOGGER.debug("Req: %s", req)
-        try:
-            with self._ws_abort_timer():
-                self.ws.send(json.dumps(req))
-                _LOGGER.debug("Successful send")
-                data = self.ws.recv()
-                _LOGGER.debug("Successful recv")
-            datadecoded = json.loads(data)
-            self.next_tid()
-            return datadecoded
-        except websocket.WebSocketConnectionClosedException as e:
-            _LOGGER.exception("Websocket closed, probably from a timeout")
-            raise WFWebsocketClosedError() from e
-        except ValueError as e:
-            _LOGGER.exception("Unable to decode data as json: %s", data)
-            raise WFWebsocketClosedError() from e
-        except Exception as e:
-            _LOGGER.exception("Unknown exception, socket probably failed")
-            raise WFWebsocketClosedError() from e
-
-    def write(self, **kwargs):
-        req = {
-            "cmd": "write",
-            "tid": self.tid,
-            "awlid": self.gwid,
-            "source": "tstat",
-        }
-        req.update(kwargs)
-
-        _LOGGER.debug("Write req: %s", req)
-        datadecoded = self.send(req)
-        _LOGGER.debug("Write resp: %s", datadecoded)
-        if datadecoded["err"]:
-            raise WFError(datadecoded["err"])
-        return datadecoded
-
-    def read(self):
-        req = copy.deepcopy(DATA_REQUEST)
-        req["tid"] = self.tid
-        req["awlid"] = self.gwid
-
-        datadecoded = self.send(req)
-        _LOGGER.debug("Resp: %s", datadecoded)
-        if not datadecoded["err"]:
-            return WFReading(datadecoded)
-        else:
-            raise WFError(datadecoded["err"])
 
 
 class SymphonyGeothermal:
@@ -760,270 +365,4 @@ class GeoStar(SymphonyGeothermal):
             device,
             location,
             sessionid=sessionid,
-        )
-
-
-class ActiveSettings:
-    def __init__(self, data=None):
-        if data is None:
-            data = {}
-
-        # mode
-        self.activemode = data.get("activemode")
-        self.tstatmode = data.get("tstatmode")
-
-        # setpoints (degrees F)
-        self.heatingsp_read = data.get("heatingsp_read")
-        self.coolingsp_read = data.get("coolingsp_read")
-
-        # fan
-        self.fanmode_read = data.get("fanmode_read")
-        self.intertimeon_read = data.get("intertimeon_read")
-        self.intertimeoff_read = data.get("intertimeoff_read")
-
-        # hold/override flags
-        self.temporaryoverride = data.get("temporaryoverride")
-        self.permanenthold = data.get("permanenthold")
-        self.vacationhold = data.get("vacationhold")
-        self.onpeakhold = data.get("onpeakhold")
-        self.superboost = data.get("superboost")
-
-    @property
-    def mode(self):
-        if self.activemode is not None:
-            return ACTIVE_MODE[self.activemode]
-        return None
-
-    def __repr__(self):
-        return (
-            f"<ActiveSettings mode={self.mode}, "
-            f"heatingsp={self.heatingsp_read}, coolingsp={self.coolingsp_read}>"
-        )
-
-
-class WFReading:
-    def __init__(self, data=None):
-        if data is None:
-            data = {}
-        self.zone = data.get("zone", 0)
-        self.err = data.get("err", "")
-        self.awlid = data.get("awlid", "")
-        self.tid = data.get("tid", 0)
-
-        # power (Watts)
-        self.compressorpower = data.get("compressorpower")
-        self.fanpower = data.get("fanpower")
-        self.auxpower = data.get("auxpower")
-        self.looppumppower = data.get("looppumppower")
-        self.totalunitpower = data.get("totalunitpower")
-
-        # modes (0 - 10)
-        self.modeofoperation = data.get("modeofoperation")
-
-        # fan speed (0 - 10)
-        self.airflowcurrentspeed = data.get("airflowcurrentspeed")
-
-        # compressor speed
-        self.actualcompressorspeed = data.get("actualcompressorspeed")
-
-        # humidity (%)
-        self.tstatdehumidsetpoint = data.get("tstatdehumidsetpoint")
-        self.tstathumidsetpoint = data.get("tstathumidsetpoint")
-        self.tstatrelativehumidity = data.get("tstatrelativehumidity")
-
-        # temps (degrees F)
-        self.leavingairtemp = data.get("leavingairtemp")
-        self.tstatroomtemp = data.get("tstatroomtemp")
-        self.enteringwatertemp = data.get("enteringwatertemp")
-        self.leavingwatertemp = data.get("leavingwatertemp")
-
-        # setpoints (degrees F)
-        self.tstatheatingsetpoint = data.get("tstatheatingsetpoint")
-        self.tstatcoolingsetpoint = data.get("tstatcoolingsetpoint")
-        self.tstatactivesetpoint = data.get("tstatactivesetpoint")
-
-        # Loop water flow rate (gallons per minute)
-        self.waterflowrate = data.get("waterflowrate")
-
-        # raw humidity settings for write passthrough
-        self.raw_humidity_offset_settings = data.get("humidity_offset_settings", {})
-
-        # active settings
-        self.activesettings = ActiveSettings(data.get("activesettings"))
-
-    @property
-    def mode(self):
-        return FURNACE_MODE[self.modeofoperation]
-
-    def __repr__(self):
-        return (
-            f"<FurnaceReading power={self.totalunitpower:d}, mode={self.mode}, "
-            f"activemode={self.activesettings.mode}, "
-            f"looptemp={self.enteringwatertemp:.1f}, "
-            f"airtemp={self.leavingairtemp:.1f}, roomtemp={self.tstatroomtemp:.1f}, "
-            f"setpoint={self.tstatactivesetpoint:d}>"
-        )
-
-
-class WFEnergyReading:
-    """Represents a single energy data reading for a specific time period."""
-
-    def __init__(self, timestamp_ms, values, columns):
-        """Initialize energy reading.
-
-        Args:
-            timestamp_ms: Unix timestamp in milliseconds
-            values: List of values corresponding to columns
-            columns: List of column names
-        """
-        self.timestamp_ms = timestamp_ms
-        # Convert milliseconds to seconds for datetime
-        self.timestamp = datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
-
-        # Create a mapping for easy access
-        data_dict = {}
-        for i, col in enumerate(columns):
-            if i < len(values):
-                data_dict[col] = values[i]
-
-        # common fields (all frequencies)
-        self.total_heat_1 = data_dict.get("total_heat_1")
-        self.total_heat_2 = data_dict.get("total_heat_2")
-        self.total_cool_1 = data_dict.get("total_cool_1")
-        self.total_cool_2 = data_dict.get("total_cool_2")
-        self.total_electric_heat = data_dict.get("total_electric_heat")
-        self.total_fan_only = data_dict.get("total_fan_only")
-        self.total_loop_pump = data_dict.get("total_loop_pump")
-        self.total_dehumidification = data_dict.get("total_dehumidification")
-        self.total_power = data_dict.get("total_power")
-        self.total_records = data_dict.get("total_records")
-
-        # runtime fields (hour/15min frequency)
-        self.runtime_heat_1 = data_dict.get("runtime_heat_1")
-        self.runtime_heat_2 = data_dict.get("runtime_heat_2")
-        self.runtime_cool_1 = data_dict.get("runtime_cool_1")
-        self.runtime_cool_2 = data_dict.get("runtime_cool_2")
-        self.runtime_electric_heat = data_dict.get("runtime_electric_heat")
-        self.runtime_fan_only = data_dict.get("runtime_fan_only")
-        self.runtime_dehumidification = data_dict.get("runtime_dehumidification")
-        self.cool_runtime = data_dict.get("cool_runtime")
-        self.heat_runtime = data_dict.get("heat_runtime")
-
-        # daily frequency only
-        self.id = data_dict.get("id")
-        self.defrost_runtime = data_dict.get("defrost_runtime")
-        self.dehumidification_runtime = data_dict.get("dehumidification_runtime")
-        self.time_zone = data_dict.get("time_zone")
-
-        # Store all raw data for any custom access
-        self._raw_data = data_dict
-
-    def get(self, key, default=None):
-        """Get any field by column name.
-
-        Args:
-            key: Column name
-            default: Default value if key not found
-
-        Returns:
-            Value for the given column or default
-        """
-        return self._raw_data.get(key, default)
-
-    def __repr__(self):
-        return f"<WFEnergyReading timestamp={self.timestamp}, power={self.total_power}>"
-
-
-class WFEnergyData:
-    """Container for energy data with multiple readings."""
-
-    def __init__(self, data=None):
-        """Initialize energy data from API response.
-
-        Args:
-            data: Dictionary containing columns, index, and data arrays
-        """
-        if data is None:
-            data = {}
-        self.columns = data.get("columns", [])
-        self.index = data.get("index", [])
-        self.data = data.get("data", [])
-
-        # Create reading objects for easier access
-        self.readings = []
-        for i, timestamp in enumerate(self.index):
-            if i < len(self.data):
-                reading = WFEnergyReading(timestamp, self.data[i], self.columns)
-                self.readings.append(reading)
-
-    def __iter__(self):
-        """Allow iteration over readings."""
-        return iter(self.readings)
-
-    def __len__(self):
-        """Return number of readings."""
-        return len(self.readings)
-
-    def __getitem__(self, index):
-        """Allow indexed access to readings."""
-        return self.readings[index]
-
-    def __repr__(self):
-        return (
-            f"<WFEnergyData records={len(self.readings)}, columns={len(self.columns)}>"
-        )
-
-
-class WFGateway:
-    """Represents a Symphony gateway/device."""
-
-    def __init__(self, data):
-        if "gwid" not in data:
-            raise ValueError("Gateway data must contain 'gwid' field")
-
-        self.gwid = data["gwid"]
-
-        self.description = data.get("description", self.gwid)
-        self.type = data.get("type")
-        self.awltstattype = data.get("awltstattype")
-        self.awltstattypedesc = data.get("awltstattypedesc")
-        self.iz2_max_zones = data.get("iz2_max_zones")
-        self.awlabctypedesc = data.get("awlabctypedesc")
-        self.awlabctype = data.get("awlabctype")
-        self.blowertype = data.get("blowertype")
-        self.online = data.get("online", 1)  # Assume online if not specified
-        self.tstat_name = data.get("tstat_name")
-
-        # Store raw data for debugging/future extensibility
-        self._raw = data
-
-    def is_online(self):
-        """Check if gateway is currently online."""
-        return bool(self.online)
-
-    def __repr__(self):
-        return f"<WFGateway gwid={self.gwid} description={self.description}>"
-
-
-class WFLocation:
-    """Represents a Symphony location."""
-
-    def __init__(self, data):
-        self.description = data.get("description", "Unknown")
-        self.postal = data.get("postal")
-        self.city = data.get("city")
-        self.state = data.get("state")
-        self.country = data.get("country")
-        self.latitude = data.get("latitude")
-        self.longitude = data.get("longitude")
-
-        # Convert gateways to WFGateway objects
-        self.gateways = [WFGateway(gw) for gw in data.get("gateways", [])]
-
-        # Store raw data for debugging/future extensibility
-        self._raw = data
-
-    def __repr__(self):
-        return (
-            f"<WFLocation description={self.description} gateways={len(self.gateways)}>"
         )

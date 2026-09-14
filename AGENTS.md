@@ -9,7 +9,13 @@ via the Symphony WebSocket API. Published on PyPI as `waterfurnace`.
 
 ```
 waterfurnace/
-  waterfurnace.py   # core library: WaterFurnace, GeoStar, WFEnergyReading classes
+  waterfurnace.py   # SymphonyGeothermal/WaterFurnace/GeoStar, _with_retry;
+                     # re-exports const.py/models.py/transport.py's public
+                     # names for backwards compatibility (see __all__)
+  const.py          # constants and exception classes, no internal imports
+  models.py         # passive data classes (WFReading, WFEnergyData, etc.)
+  transport.py      # _AuthSession (HTTP login/session) and _WsTransport
+                     # (websocket connect/login/read/write)
   cli.py            # Click CLI entry point
   __init__.py       # exposes public API, version from package metadata
 tests/
@@ -18,9 +24,17 @@ tests/
   test_write.py     # write command tests (set_mode, set_cooling_setpoint, etc.)
   test_waterfurnace.py  # CLI tests
   test_timeout.py   # timeout/reconnect behavior
+  test_homeassistant.py  # tests mirroring Home Assistant's integration usage
 pyproject.toml      # version, dependencies, build config
 Makefile            # convenience targets
 ```
+
+Constants moved to `const.py` are bound into `transport.py`'s and
+`waterfurnace.py`'s namespaces at import time. A test that does
+`monkeypatch.setattr(wf, "TIMEOUT", ...)` (where `wf` is the
+`waterfurnace.waterfurnace` module) will silently no-op — patch
+`waterfurnace.transport.TIMEOUT` instead when the code path under test lives
+in `transport.py`.
 
 ## Rules
 
