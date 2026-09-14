@@ -34,7 +34,7 @@ class FakeRequest:
         json_data=None,
     ):
         self.status_code = status_code
-        self.content = content
+        self.content = content if isinstance(content, bytes) else content.encode()
         self.text = text
         self._json_data = json_data
         if cookies is None:

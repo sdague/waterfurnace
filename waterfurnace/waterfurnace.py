@@ -285,7 +285,7 @@ class _AuthSession:
             _LOGGER.debug("Response: %s", res)
             _LOGGER.debug("Response Cookies: %s", res.cookies)
             _LOGGER.debug("Response Content: %s", res.content)
-            if FAILED_LOGIN in res.content:
+            if FAILED_LOGIN.encode() in res.content:
                 _LOGGER.exception(
                     "Failed to log in, are you sure your user / password are correct"
                 )

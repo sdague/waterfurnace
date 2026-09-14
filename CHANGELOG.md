@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Bad login credentials now correctly raise `WFCredentialError` instead of
+  an uncaught `TypeError`. The login-failure check compared the
+  `FAILED_LOGIN` string against `res.content`, which is `bytes` on a real
+  `requests` response, so the check never matched and the code fell through
+  to a `TypeError` instead of distinguishing bad credentials from other
+  login failures.
+
 ## [1.9.5] - 2026-09-14
 
 This release is part of an extensive refactoring of the library aimed at
