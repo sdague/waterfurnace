@@ -237,6 +237,30 @@ class TestSetFanMode:
         with pytest.raises(ValueError, match="fan mode must be an integer"):
             mock_waterfurnace_client.set_fan_mode(5)
 
+    @pytest.mark.parametrize("intertimeon", [0, 61, -5])
+    def test_intertimeon_out_of_range(self, mock_waterfurnace_client, intertimeon):
+        with pytest.raises(ValueError, match="intertimeon must be an integer between"):
+            mock_waterfurnace_client.set_fan_mode(
+                2, intertimeon=intertimeon, intertimeoff=5
+            )
+
+    @pytest.mark.parametrize("intertimeoff", [0, 61, -5])
+    def test_intertimeoff_out_of_range(self, mock_waterfurnace_client, intertimeoff):
+        with pytest.raises(
+            ValueError, match="intertimeoff must be an integer between"
+        ):
+            mock_waterfurnace_client.set_fan_mode(
+                2, intertimeon=5, intertimeoff=intertimeoff
+            )
+
+    def test_intertimeon_invalid_type(self, mock_waterfurnace_client):
+        with pytest.raises(ValueError, match="intertimeon must be an integer"):
+            mock_waterfurnace_client.set_fan_mode(2, intertimeon=5.5, intertimeoff=5)
+
+    def test_intertimeoff_invalid_type(self, mock_waterfurnace_client):
+        with pytest.raises(ValueError, match="intertimeoff must be an integer"):
+            mock_waterfurnace_client.set_fan_mode(2, intertimeon=5, intertimeoff="5")
+
 
 class TestSetHumidity:
     """Tests for set_humidity."""

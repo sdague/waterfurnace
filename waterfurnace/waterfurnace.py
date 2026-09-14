@@ -68,6 +68,8 @@ WRITE_FIELD_SPECS = {
     "heating_setpoint": {"min": 40, "max": 80, "type": (int, float)},
     "fan_mode": {"min": 0, "max": 2, "type": (int,)},
     "humidity": {"min": 15, "max": 95, "type": (int,)},
+    "intertimeon": {"min": 1, "max": 60, "type": (int,)},
+    "intertimeoff": {"min": 1, "max": 60, "type": (int,)},
 }
 
 DATA_REQUEST = {
@@ -606,8 +608,8 @@ class SymphonyGeothermal:
 
         Args:
             mode: Integer 0-2 (Auto=0, Continuous=1, Intermittent=2)
-            intertimeon: Minutes on-time, required when mode=2
-            intertimeoff: Minutes off-time, required when mode=2
+            intertimeon: Minutes on-time (1-60), required when mode=2
+            intertimeoff: Minutes off-time (1-60), required when mode=2
         """
         self._validate("fan_mode", mode)
         if mode == 2:
@@ -615,14 +617,8 @@ class SymphonyGeothermal:
                 raise ValueError(
                     "intertimeon and intertimeoff are required for intermittent mode"
                 )
-            if not isinstance(intertimeon, int) or intertimeon <= 0:
-                raise ValueError(
-                    f"intertimeon must be a positive integer, got: {intertimeon}"
-                )
-            if not isinstance(intertimeoff, int) or intertimeoff <= 0:
-                raise ValueError(
-                    f"intertimeoff must be a positive integer, got: {intertimeoff}"
-                )
+            self._validate("intertimeon", intertimeon)
+            self._validate("intertimeoff", intertimeoff)
             return self._ws_write(
                 fanmode_write=mode,
                 intertimeon_write=intertimeon,

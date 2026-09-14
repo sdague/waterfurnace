@@ -28,6 +28,19 @@
   loop instead of `self.fails`. It was never read outside that loop, so
   keeping it as instance state served no purpose beyond making it look
   like meaningful object state.
+- `set_fan_mode()`'s `intertimeon`/`intertimeoff` type/range checks are now
+  driven by `WRITE_FIELD_SPECS`/`_validate()`, the same schema-driven
+  mechanism the other write methods already use, instead of their own
+  inline `isinstance`/range checks. The "required together when
+  `mode=2`"/"forbidden otherwise" relationship between the two arguments
+  remains explicit inline logic, since that's a cross-field rule the
+  per-field schema doesn't model. One wording change: the `ValueError` for
+  an out-of-range or wrong-type `intertimeon`/`intertimeoff` now matches
+  the standardized message format used by the other write methods (e.g.
+  "intertimeon must be an integer between 1-60, got: X") instead of its
+  previous bespoke wording. Valid range is 1-60 minutes; no documented
+  hardware limit exists, so this is a sanity ceiling rather than a real
+  device constraint.
 
 ## [1.9.4] - 2026-09-13
 
