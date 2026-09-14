@@ -192,11 +192,20 @@ class SymphonyGeothermal:
     def read(self):
         return self._transport.read()
 
-    # Deprecated alias kept for backwards compatibility: read() has included
-    # retry/relogin behavior since 1.9.3, so read_with_retry is no longer a
-    # distinct method. Existing callers (e.g. Home Assistant's coordinator)
-    # still call it by this name.
-    read_with_retry = read
+    def read_with_retry(self):
+        """Deprecated alias for read().
+
+        read() has included retry/relogin behavior since 1.9.3, so this is
+        no longer a distinct method. Kept for backwards compatibility with
+        existing callers (e.g. Home Assistant's coordinator) that still call
+        it by this name.
+        """
+        _LOGGER.warning(
+            "read_with_retry() is deprecated and will be removed in a future "
+            "release; call read() instead, which has included the same "
+            "retry/relogin behavior since 1.9.3"
+        )
+        return self.read()
 
     @staticmethod
     def _validate(field, value):

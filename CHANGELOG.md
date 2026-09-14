@@ -12,6 +12,12 @@
   now generic (no longer say "energy data") since the decorator isn't
   specific to that one caller.
 
+### Deprecated
+- `read_with_retry()` now logs a `WARNING`-level deprecation message when
+  called, pointing callers at `read()` (which has included the same
+  retry/relogin behavior since 1.9.3). Behavior is otherwise unchanged; it
+  still just delegates to `read()`.
+
 ## [1.9.6] - 2026-09-14
 
 ### Changed
