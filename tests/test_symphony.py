@@ -797,9 +797,20 @@ class TestEnergyData(unittest.TestCase):
     def test_get_energy_data_401_refreshes_session_and_retries(
         self, mock_post, mock_ws_create, mock_get
     ):
-        """A 401 refreshes the session once and succeeds on retry."""
-        # Login mocks: CSRF-token page fetch, then login POST.
-        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        """A 401 refreshes the session once and succeeds on retry.
+
+        The session-refresh /user check is mocked to fail (not just the
+        energy request), so get_session_id() falls through to a real
+        _get_session_id() re-login and the retried request actually uses a
+        newly-issued sessionid, rather than the check happening to succeed
+        and short-circuit before a new session is ever fetched.
+        """
+        # Login POST issues the initial session, the refresh-login POST
+        # issues a distinct one.
+        mock_post.side_effect = [
+            FakeRequest(cookies={"sessionid": "test_session_id"}),
+            FakeRequest(cookies={"sessionid": "refreshed_session_id"}),
+        ]
         m_ws = mock.MagicMock()
         m_ws.recv.return_value = FAKE_CONTENT
         mock_ws_create.return_value = m_ws
@@ -817,13 +828,20 @@ class TestEnergyData(unittest.TestCase):
         failed_response = mock.MagicMock()
         failed_response.raise_for_status.side_effect = self._make_http_error(401)
 
+        expired_session_check = mock.MagicMock()
+        expired_session_check.json.side_effect = requests.exceptions.JSONDecodeError(
+            "no JSON", "", 0
+        )
+
         # requests.get sequence: login-page fetch, first energy request
-        # (401), session-refresh /user check, second energy request
-        # (succeeds).
+        # (401), session-refresh /user check (fails, forcing a real
+        # re-login), CSRF-token page fetch for that re-login, second
+        # energy request (succeeds).
         mock_get.side_effect = [
             FakeRequest(),
             failed_response,
-            FakeRequest(json_data={"emailaddress": "test@example.com"}),
+            expired_session_check,
+            FakeRequest(),
             success_response,
         ]
 
@@ -834,7 +852,14 @@ class TestEnergyData(unittest.TestCase):
 
         assert isinstance(energy_data, wf.WFEnergyData)
         assert len(energy_data) == 1
-        assert mock_get.call_count == 4
+        assert mock_get.call_count == 5
+        assert w._auth.sessionid == "refreshed_session_id"
+        assert success_response.raise_for_status.called
+        # The retried request must carry the newly-issued sessionid.
+        assert (
+            mock_get.call_args_list[-1].kwargs["cookies"]["sessionid"]
+            == "refreshed_session_id"
+        )
 
     @mock.patch("requests.get")
     @mock.patch("websocket.create_connection")
@@ -892,6 +917,47 @@ class TestEnergyData(unittest.TestCase):
 
         # Login page fetch + one energy request attempt, no retry.
         assert mock_get.call_count == 2
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_401_session_refresh_failure_propagates(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """If get_session_id() itself fails during the refresh, that error
+        propagates directly out of get_energy_data() rather than being
+        masked as a WFCredentialError from the original 401.
+        """
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        failed_response = mock.MagicMock()
+        failed_response.raise_for_status.side_effect = self._make_http_error(401)
+
+        expired_session_check = mock.MagicMock()
+        expired_session_check.json.side_effect = requests.exceptions.JSONDecodeError(
+            "no JSON", "", 0
+        )
+        # The re-login's CSRF-token page fetch has no token, so
+        # _get_session_id() raises WFError instead of yielding a session.
+        no_csrf_token_page = FakeRequest(text="<html>no token here</html>")
+
+        mock_get.side_effect = [
+            FakeRequest(),
+            failed_response,
+            expired_session_check,
+            no_csrf_token_page,
+        ]
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(wf.WFError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
+
+        assert mock_get.call_count == 4
 
 
 class TestSymphonyLocationMethods:

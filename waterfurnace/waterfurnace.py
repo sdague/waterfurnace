@@ -260,6 +260,8 @@ class SymphonyGeothermal:
 
         Raises requests.exceptions.HTTPError (uncaught) so callers can
         inspect the status code to decide whether a retry makes sense.
+        Also raises WFNoDataError (uncaught) if the server returns an empty
+        body, since that's never worth retrying.
         """
         # The API takes a number of periods counting forward from start,
         # rather than an end date, so convert the date range to a count.
