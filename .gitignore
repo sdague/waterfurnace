@@ -13,6 +13,9 @@ __pycache__/
 *.bak
 .DS_Store
 
+# Environment variables
+.env
+
 # Distribution / packaging
 .Python
 env/
