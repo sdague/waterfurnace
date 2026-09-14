@@ -106,6 +106,43 @@ def _with_retry(func):
     return wrapper
 
 
+def _with_http_auth_retry(func):
+    """Retry an HTTP-facing method once on a 401/403, after refreshing the
+    session.
+
+    Unlike _with_retry (websocket reconnect, backoff, several attempts),
+    this is for a single HTTP call whose only recoverable failure is an
+    expired session: refresh via self._auth.get_session_id() and retry
+    immediately, exactly once. Any other requests.exceptions.HTTPError
+    status, or a second 401/403, is not retried; a second 401/403 is raised
+    as WFCredentialError instead.
+    """
+
+    def _is_auth_failure(exc):
+        return exc.response is not None and exc.response.status_code in (401, 403)
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except requests.exceptions.HTTPError as e:
+            if not _is_auth_failure(e):
+                raise
+            _LOGGER.debug("Session expired, refreshing and retrying once")
+            self._auth.get_session_id()
+            try:
+                return func(self, *args, **kwargs)
+            except requests.exceptions.HTTPError as retry_e:
+                if _is_auth_failure(retry_e):
+                    _LOGGER.error(
+                        "Session refresh did not resolve authentication failure"
+                    )
+                    raise WFCredentialError() from retry_e
+                raise
+
+    return wrapper
+
+
 class SymphonyGeothermal:
     def __init__(
         self,
@@ -155,11 +192,20 @@ class SymphonyGeothermal:
     def read(self):
         return self._transport.read()
 
-    # Deprecated alias kept for backwards compatibility: read() has included
-    # retry/relogin behavior since 1.9.3, so read_with_retry is no longer a
-    # distinct method. Existing callers (e.g. Home Assistant's coordinator)
-    # still call it by this name.
-    read_with_retry = read
+    def read_with_retry(self):
+        """Deprecated alias for read().
+
+        read() has included retry/relogin behavior since 1.9.3, so this is
+        no longer a distinct method. Kept for backwards compatibility with
+        existing callers (e.g. Home Assistant's coordinator) that still call
+        it by this name.
+        """
+        _LOGGER.warning(
+            "read_with_retry() is deprecated and will be removed in a future "
+            "release; call read() instead, which has included the same "
+            "retry/relogin behavior since 1.9.3"
+        )
+        return self.read()
 
     @staticmethod
     def _validate(field, value):
@@ -255,13 +301,14 @@ class SymphonyGeothermal:
             },
         )
 
+    @_with_http_auth_retry
     def _request_energy_data(self, start_date, end_date, frequency, timezone_str):
         """Fetch and parse one energy-data response.
 
-        Raises requests.exceptions.HTTPError (uncaught) so callers can
-        inspect the status code to decide whether a retry makes sense.
-        Also raises WFNoDataError (uncaught) if the server returns an empty
-        body, since that's never worth retrying.
+        Raises requests.exceptions.HTTPError (uncaught) for a non-auth HTTP
+        failure, or WFCredentialError if a 401/403 survives the decorator's
+        refresh-and-retry. Also raises WFNoDataError (uncaught) if the
+        server returns an empty body, since that's never worth retrying.
         """
         # The API takes a number of periods counting forward from start,
         # rather than an end date, so convert the date range to a count.
@@ -334,40 +381,21 @@ class SymphonyGeothermal:
         if frequency not in valid_frequencies:
             raise ValueError(f"Invalid frequency. Must be one of {valid_frequencies}")
 
-        retried = False
-        while True:
-            try:
-                return self._request_energy_data(
-                    start_date, end_date, frequency, timezone_str
-                )
-            except WFNoDataError:  # noqa: PERF203
-                raise
-            except requests.exceptions.HTTPError as e:
-                is_auth_failure = e.response is not None and e.response.status_code in (
-                    401,
-                    403,
-                )
-                if not is_auth_failure:
-                    _LOGGER.exception(f"HTTP error getting energy data: {e}")
-                    raise WFError(f"Failed to get energy data: {e}") from e
-                if retried:
-                    _LOGGER.error(
-                        "Session refresh did not resolve energy data "
-                        "authentication failure"
-                    )
-                    raise WFCredentialError() from e
-
-                _LOGGER.debug(
-                    "Session expired getting energy data, refreshing and retrying once"
-                )
-                self._auth.get_session_id()
-                retried = True
-            except requests.exceptions.RequestException as e:
-                _LOGGER.exception(f"Request error getting energy data: {e}")
-                raise WFError(f"Failed to get energy data: {e}") from e
-            except (ValueError, KeyError) as e:
-                _LOGGER.exception(f"Error parsing energy data response: {e}")
-                raise WFError(f"Invalid energy data response: {e}") from e
+        try:
+            return self._request_energy_data(
+                start_date, end_date, frequency, timezone_str
+            )
+        except (WFNoDataError, WFCredentialError):
+            raise
+        except requests.exceptions.HTTPError as e:
+            _LOGGER.exception(f"HTTP error getting energy data: {e}")
+            raise WFError(f"Failed to get energy data: {e}") from e
+        except requests.exceptions.RequestException as e:
+            _LOGGER.exception(f"Request error getting energy data: {e}")
+            raise WFError(f"Failed to get energy data: {e}") from e
+        except (ValueError, KeyError) as e:
+            _LOGGER.exception(f"Error parsing energy data response: {e}")
+            raise WFError(f"Invalid energy data response: {e}") from e
 
 
 class WaterFurnace(SymphonyGeothermal):

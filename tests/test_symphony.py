@@ -430,9 +430,16 @@ class TestReadData(unittest.TestCase):
         assert data.activesettings.heatingsp_read == 69
         assert data.activesettings.coolingsp_read == 75
 
-    def test_read_with_retry_is_alias_for_read(self):
+    def test_read_with_retry_delegates_to_read_and_warns(self):
         w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd)
-        assert w.read_with_retry == w.read
+        with mock.patch.object(w, "read") as mock_read:
+            mock_read.return_value = mock.sentinel.reading
+            with self.assertLogs("waterfurnace.waterfurnace", level="WARNING") as cm:
+                result = w.read_with_retry()
+
+        assert result is mock.sentinel.reading
+        mock_read.assert_called_once_with()
+        assert any("read_with_retry() is deprecated" in msg for msg in cm.output)
 
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
