@@ -24,6 +24,10 @@
   (and defaults to device index 0) now raises `WFError` from `login()`
   itself, instead of `login()` succeeding and `devices` later evaluating to
   an empty list.
+- `_with_retry`'s failure count is now a local variable inside the retry
+  loop instead of `self.fails`. It was never read outside that loop, so
+  keeping it as instance state served no purpose beyond making it look
+  like meaningful object state.
 
 ## [1.9.4] - 2026-09-13
 

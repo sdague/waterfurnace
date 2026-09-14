@@ -145,28 +145,26 @@ def _with_retry(func):
     in advance when that will happen, so any call onto the wire needs to be
     prepared to relogin and retry rather than fail outright. On
     RequestException/WFWebsocketClosedError, this reconnects (self.login())
-    and retries with increasing backoff, up to self.max_fails times, leaving
-    self.fails outside 0..max_fails only while a retry loop is in progress.
+    and retries with increasing backoff, up to self.max_fails times.
     """
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        while self.fails <= self.max_fails:
+        fails = 0
+        while fails <= self.max_fails:
             try:
-                if self.fails >= 1:
+                if fails >= 1:
                     self.login()
                     _LOGGER.debug("Reconnected to furnace")
-                result = func(self, *args, **kwargs)
-                self.fails = 0
-                return result
+                return func(self, *args, **kwargs)
             except requests.exceptions.RequestException:  # noqa: PERF203
-                self.fails = self.fails + 1
+                fails += 1
                 _LOGGER.exception("relogin failed, trying again")
             except WFWebsocketClosedError:
-                self.fails = self.fails + 1
+                fails += 1
                 _LOGGER.exception("websocket read failed, reconnecting")
-            if self.fails <= self.max_fails:
-                time.sleep(self.fails * ERROR_INTERVAL)
+            if fails <= self.max_fails:
+                time.sleep(fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError("Failed to refresh credentials after retries")
 
     return wrapper
@@ -515,9 +513,7 @@ class SymphonyGeothermal:
         sessionid=None,
     ):
         self.user = user
-        # For retry logic
         self.max_fails = max_fails
-        self.fails = 0
         self.locations = None
         self.devices = None
         self.gwid = None
