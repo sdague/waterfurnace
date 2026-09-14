@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Extracted the "refresh the session once on a 401/403 and retry" policy out
+  of `get_energy_data()`'s request loop into a new `_with_http_auth_retry`
+  decorator, applied to `_request_energy_data()`, mirroring how `_with_retry`
+  already isolates the websocket reconnect/retry policy from `read()`. No
+  behavior change: same exceptions raised in the same situations, same
+  number of retries. The two log messages for the refresh-and-retry step are
+  now generic (no longer say "energy data") since the decorator isn't
+  specific to that one caller.
+
 ## [1.9.6] - 2026-09-14
 
 ### Changed
