@@ -351,7 +351,6 @@ class _WsTransport:
 
         datadecoded = self.send(req)
         _LOGGER.debug("Resp: %s", datadecoded)
-        if not datadecoded["err"]:
-            return WFReading(datadecoded)
-        else:
+        if datadecoded["err"]:
             raise WFError(datadecoded["err"])
+        return WFReading(datadecoded)

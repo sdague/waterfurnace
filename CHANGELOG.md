@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- `read()` now checks `datadecoded["err"]` with the same early-raise style
+  `write()` already used, instead of a negated `if not err: ... else: raise`.
+  No behavior change; purely a stylistic consistency fix.
+
 ## [1.9.7] - 2026-09-15
 
 ### Changed
