@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.7] - 2026-09-15
 
 ### Changed
 - Extracted the "refresh the session once on a 401/403 and retry" policy out
