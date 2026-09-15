@@ -222,7 +222,12 @@ class _WsTransport:
         return locations
 
     def _resolve_gwid(self, locations):
-        """Resolve self.location/self.device against locations and set gwid."""
+        """Resolve self.location/self.device against locations and set gwid.
+
+        Args:
+            locations: Raw location dicts straight from the login response
+                (see _parse_login_response), not WFLocation objects.
+        """
         location = self._resolve_by_index(self.location, locations, "Location")
 
         try:
@@ -238,7 +243,12 @@ class _WsTransport:
         self.gwid = device["gwid"]
 
     def _resolve_devices(self, locations):
-        """Resolve self.location against locations and return its WFGateways."""
+        """Resolve self.location against locations and return its WFGateways.
+
+        Args:
+            locations: A list of WFLocation objects (see self.locations),
+                not the raw dicts _resolve_gwid expects.
+        """
         target_location = self._resolve_by_index(self.location, locations, "Location")
         return target_location.gateways
 

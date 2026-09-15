@@ -11,6 +11,13 @@
   `default=0`. Valid integer input behaves identically; invalid input now
   fails with a clear click validation error at the CLI boundary instead of
   potentially reaching library code as a string.
+- Documented that `_WsTransport._resolve_gwid()` and `_resolve_devices()`
+  expect different shapes of `locations` (raw login-response dicts vs.
+  `WFLocation` objects) despite their similar names/purpose. Docstrings
+  only, no behavior change.
+- Five `_LOGGER.debug()`/`.exception()` calls in `waterfurnace.py` that used
+  eager f-string interpolation now use lazy `%s`-style formatting,
+  consistent with `transport.py`'s existing convention. No behavior change.
 
 ### Removed
 - Removed the string-match branch (selecting a location/device by

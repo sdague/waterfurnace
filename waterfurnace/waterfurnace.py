@@ -338,7 +338,7 @@ class SymphonyGeothermal:
             "legal-acknowledge": "yes",
         }
 
-        _LOGGER.debug(f"Requesting energy data from: {url}")
+        _LOGGER.debug("Requesting energy data from: %s", url)
 
         res = requests.get(
             url,
@@ -352,7 +352,7 @@ class SymphonyGeothermal:
                 f"No energy data available for {start_date} to {end_date}"
             )
         data = res.json()
-        _LOGGER.debug(f"Received energy data: {len(data.get('index', []))} records")
+        _LOGGER.debug("Received energy data: %s records", len(data.get("index", [])))
         return WFEnergyData(data)
 
     def get_energy_data(
@@ -390,13 +390,13 @@ class SymphonyGeothermal:
         except (WFNoDataError, WFCredentialError):
             raise
         except requests.exceptions.HTTPError as e:
-            _LOGGER.exception(f"HTTP error getting energy data: {e}")
+            _LOGGER.exception("HTTP error getting energy data: %s", e)
             raise WFError(f"Failed to get energy data: {e}") from e
         except requests.exceptions.RequestException as e:
-            _LOGGER.exception(f"Request error getting energy data: {e}")
+            _LOGGER.exception("Request error getting energy data: %s", e)
             raise WFError(f"Failed to get energy data: {e}") from e
         except (ValueError, KeyError) as e:
-            _LOGGER.exception(f"Error parsing energy data response: {e}")
+            _LOGGER.exception("Error parsing energy data response: %s", e)
             raise WFError(f"Invalid energy data response: {e}") from e
 
 
