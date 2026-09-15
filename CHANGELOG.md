@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Removed
+- Removed the string-match branch (selecting a location/device by
+  `description` or `gwid` string) from `_WsTransport`'s location/device
+  resolution, and renamed `_resolve_by_index_or_match` to `_resolve_by_index`.
+  No caller ever exercised it: the CLI's `-D`/`-l` options, this project's
+  own tests, and the only known downstream consumer (Home Assistant's
+  waterfurnace integration) all only ever pass an integer index for
+  `device=`/`location=`. Integer index selection is unchanged.
+
 ## [1.9.7] - 2026-09-15
 
 ### Changed

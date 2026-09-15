@@ -171,32 +171,20 @@ class _WsTransport:
         self.tid = (self.tid + 1) % 100
 
     @staticmethod
-    def _resolve_by_index_or_match(selector, items, kind, match):
-        """Resolve an item from a list by integer index or string match.
+    def _resolve_by_index(selector, items, kind):
+        """Resolve an item from a list by integer index.
 
         Args:
-            selector: An int index into items, or a str to find via match.
+            selector: An int index into items.
             items: The list to resolve from.
             kind: Human-readable name of what's being resolved, for errors.
-            match: Callable(item, selector) -> bool, used when selector is a str.
         """
-        if isinstance(selector, int):
-            try:
-                return items[selector]
-            except IndexError as e:
-                raise WFError(
-                    f"{kind} index out of range. Max index is {len(items) - 1}"
-                ) from e
-        elif isinstance(selector, str):
-            for item in items:
-                if match(item, selector):
-                    return item
-            raise WFError(f"Unable to find {kind.lower()}: {selector}")
-        else:
+        try:
+            return items[selector]
+        except IndexError as e:
             raise WFError(
-                f"Unknown {kind.lower()} type ({type(selector)}): {selector}. "
-                f"Should be int or str"
-            )
+                f"{kind} index out of range. Max index is {len(items) - 1}"
+            ) from e
 
     def _connect_ws(self):
         # The following is needed to allow legacy negotiation because
@@ -235,12 +223,7 @@ class _WsTransport:
 
     def _resolve_gwid(self, locations):
         """Resolve self.location/self.device against locations and set gwid."""
-        location = self._resolve_by_index_or_match(
-            self.location,
-            locations,
-            "Location",
-            match=lambda item, selector: item.get("description") == selector,
-        )
+        location = self._resolve_by_index(self.location, locations, "Location")
 
         try:
             gateways = location["gateways"]
@@ -250,25 +233,13 @@ class _WsTransport:
             )
             raise WFWebsocketClosedError() from e
 
-        device = self._resolve_by_index_or_match(
-            self.device,
-            gateways,
-            "Device",
-            match=lambda item, selector: (
-                item.get("gwid") == selector or item.get("description") == selector
-            ),
-        )
+        device = self._resolve_by_index(self.device, gateways, "Device")
 
         self.gwid = device["gwid"]
 
     def _resolve_devices(self, locations):
         """Resolve self.location against locations and return its WFGateways."""
-        target_location = self._resolve_by_index_or_match(
-            self.location,
-            locations,
-            "Location",
-            match=lambda item, selector: item.description == selector,
-        )
+        target_location = self._resolve_by_index(self.location, locations, "Location")
         return target_location.gateways
 
     def login(self, sessionid):
