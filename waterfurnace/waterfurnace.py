@@ -98,7 +98,9 @@ def _with_retry(func):
                 _LOGGER.exception("relogin failed, trying again")
             except WFWebsocketClosedError:
                 fails += 1
-                _LOGGER.exception("websocket read failed, reconnecting")
+                # Routine: the underlying transport already logged the
+                # cause at DEBUG; this is just the reconnect-and-retry step.
+                _LOGGER.debug("websocket read failed, reconnecting", exc_info=True)
             if fails <= self.max_fails:
                 time.sleep(fails * ERROR_INTERVAL)
         raise WFWebsocketClosedError("Failed to refresh credentials after retries")

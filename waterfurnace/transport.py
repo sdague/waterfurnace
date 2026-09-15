@@ -316,7 +316,10 @@ class _WsTransport:
             self.next_tid()
             return datadecoded
         except websocket.WebSocketConnectionClosedException as e:
-            _LOGGER.exception("Websocket closed, probably from a timeout")
+            # Routine: the server closes idle connections, and the caller
+            # (_with_retry) reconnects and retries. Not worth an ERROR-level
+            # traceback.
+            _LOGGER.debug("Websocket closed, probably from a timeout", exc_info=True)
             raise WFWebsocketClosedError() from e
         except ValueError as e:
             _LOGGER.exception("Unable to decode data as json: %s", data)
