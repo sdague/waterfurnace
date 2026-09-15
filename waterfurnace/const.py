@@ -42,6 +42,17 @@ FAILED_LOGIN = (
 TIMEOUT = 30
 ERROR_INTERVAL = 300
 
+# How long to wait for a websocket send/recv round trip before aborting the
+# connection, in _WsTransport._ws_abort_timer. Kept shorter than TIMEOUT
+# (the HTTP request timeout) since a hung websocket should be detected and
+# recovered from faster than a plain HTTP call is allowed to block.
+WS_ABORT_TIMEOUT = 10.0
+
+# Poll interval for the CLI's `sensors --continuous` loop, in seconds. No
+# server-side requirement drives this value; it's just a reasonable human-
+# readable cadence for watching live sensor data.
+CONTINUOUS_READ_INTERVAL = 15
+
 # Range specs for the scalar arguments accepted by the set_* write methods.
 # "type" is always a tuple of the exact types accepted; bool is deliberately
 # never included, since bool is a subclass of int and would otherwise pass

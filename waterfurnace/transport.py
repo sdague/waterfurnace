@@ -16,6 +16,7 @@ from .const import (
     FAILED_LOGIN,
     TIMEOUT,
     USER_AGENT,
+    WS_ABORT_TIMEOUT,
     WFCredentialError,
     WFError,
     WFWebsocketClosedError,
@@ -273,7 +274,7 @@ class _WsTransport:
     @contextlib.contextmanager
     def _ws_abort_timer(self):
         """Abort the websocket if the enclosed block doesn't finish in time."""
-        timer = threading.Timer(10.0, self._abort, [self])
+        timer = threading.Timer(WS_ABORT_TIMEOUT, self._abort, [self])
         timer.start()
         try:
             yield

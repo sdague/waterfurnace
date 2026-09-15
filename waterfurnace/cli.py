@@ -7,6 +7,7 @@ import time
 import click
 
 import waterfurnace.waterfurnace
+from waterfurnace.const import CONTINUOUS_READ_INTERVAL
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -134,7 +135,7 @@ def main():
     "continuous",
     required=False,
     is_flag=True,
-    help="Read sensors every 15 seconds continuously",
+    help=f"Read sensors every {CONTINUOUS_READ_INTERVAL} seconds continuously",
 )
 def sensors_cmd(
     user, passwd, sessionid, device, location, vendor, debug, sensors, continuous
@@ -164,7 +165,7 @@ def sensors_cmd(
                 click.echo(f"{sensor} = {getattr(data, sensor)}")
 
         if continuous:
-            time.sleep(15)
+            time.sleep(CONTINUOUS_READ_INTERVAL)
         else:
             break
 

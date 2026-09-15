@@ -18,6 +18,12 @@
 - Five `_LOGGER.debug()`/`.exception()` calls in `waterfurnace.py` that used
   eager f-string interpolation now use lazy `%s`-style formatting,
   consistent with `transport.py`'s existing convention. No behavior change.
+- Promoted two previously-unexplained magic numbers to named constants in
+  `const.py`: `WS_ABORT_TIMEOUT` (the `10.0`-second websocket abort timer in
+  `_WsTransport._ws_abort_timer`) and `CONTINUOUS_READ_INTERVAL` (the CLI's
+  `15`-second poll interval for `sensors --continuous`), each with a comment
+  on why that value is what it is (or, for the latter, that no specific
+  reason drives it). No behavior change.
 
 ### Removed
 - Removed the string-match branch (selecting a location/device by
