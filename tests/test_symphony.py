@@ -9,6 +9,7 @@ from unittest import mock
 
 import pytest
 import requests
+import websocket
 
 from waterfurnace import waterfurnace as wf
 
@@ -489,6 +490,38 @@ class TestReadData(unittest.TestCase):
             w.read()
 
         assert w._transport.tid == tid_before
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_websocket_closed_not_logged_as_error(
+        self, mock_req, mock_get, mock_ws_create
+    ):
+        # The server closing an idle connection is routine and _with_retry
+        # recovers via reconnect-and-retry, so it must not be logged at
+        # ERROR level in either transport.py (where it's first caught) or
+        # waterfurnace.py (where _with_retry catches the translated error).
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)}
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(mock.sentinel.email, mock.sentinel.passwd, max_fails=0)
+        w.login()
+
+        m_ws.recv.side_effect = websocket.WebSocketConnectionClosedException(
+            "Connection to remote host was lost."
+        )
+
+        transport_logger = logging.getLogger("waterfurnace.transport")
+        main_logger = logging.getLogger("waterfurnace.waterfurnace")
+        with self.assertNoLogs(transport_logger, level=logging.ERROR):
+            with self.assertNoLogs(main_logger, level=logging.ERROR):
+                with pytest.raises(wf.WFWebsocketClosedError):
+                    w.read()
 
     @mock.patch("time.sleep")
     @mock.patch("websocket.create_connection")

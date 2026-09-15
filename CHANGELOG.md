@@ -18,6 +18,15 @@
   retry/relogin behavior since 1.9.3). Behavior is otherwise unchanged; it
   still just delegates to `read()`.
 
+### Fixed
+- The websocket connection being closed by the server (routine after ~30s of
+  inactivity, and already recovered from automatically via `_with_retry`) is
+  no longer logged at ERROR level with a full traceback. This previously
+  made a normal reconnect look like a crash in Home Assistant's logs. Two log
+  calls were downgraded to DEBUG: the initial catch in `transport.py`'s
+  `send()`, and `_with_retry`'s own "reconnecting" message in
+  `waterfurnace.py`. The traceback is still available at DEBUG level.
+
 ## [1.9.6] - 2026-09-14
 
 ### Changed
