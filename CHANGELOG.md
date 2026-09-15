@@ -6,6 +6,15 @@
 - `read()` now checks `datadecoded["err"]` with the same early-raise style
   `write()` already used, instead of a negated `if not err: ... else: raise`.
   No behavior change; purely a stylistic consistency fix.
+- The CLI's `-D`/`--device` and `-l`/`--location` options now declare
+  `type=int` explicitly instead of relying on click's inference from
+  `default=0`. Valid integer input behaves identically; invalid input now
+  fails with a clear click validation error at the CLI boundary instead of
+  potentially reaching library code as a string.
+
+### Removed
+- Deleted `tests/test_client.py`, an empty (0-byte) file that contributed
+  nothing to test collection.
 
 ## [1.9.7] - 2026-09-15
 
