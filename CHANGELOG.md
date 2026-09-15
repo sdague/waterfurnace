@@ -13,6 +13,13 @@
   potentially reaching library code as a string.
 
 ### Removed
+- Removed the string-match branch (selecting a location/device by
+  `description` or `gwid` string) from `_WsTransport`'s location/device
+  resolution, and renamed `_resolve_by_index_or_match` to `_resolve_by_index`.
+  No caller ever exercised it: the CLI's `-D`/`-l` options, this project's
+  own tests, and the only known downstream consumer (Home Assistant's
+  waterfurnace integration) all only ever pass an integer index for
+  `device=`/`location=`. Integer index selection is unchanged.
 - Deleted `tests/test_client.py`, an empty (0-byte) file that contributed
   nothing to test collection.
 

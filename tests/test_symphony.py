@@ -1111,50 +1111,18 @@ class TestSymphonyLocationMethods:
             symphony.login()
 
 
-class TestResolveByIndexOrMatch:
-    """Tests for _WsTransport._resolve_by_index_or_match."""
+class TestResolveByIndex:
+    """Tests for _WsTransport._resolve_by_index."""
 
     ITEMS = [{"gwid": "gw-1", "description": "Home"}, {"gwid": "gw-2"}]
 
-    @staticmethod
-    def _match(item, selector):
-        return item.get("gwid") == selector or item.get("description") == selector
-
     def test_resolves_by_int_index(self):
-        item = wf._WsTransport._resolve_by_index_or_match(
-            1, self.ITEMS, "Device", self._match
-        )
+        item = wf._WsTransport._resolve_by_index(1, self.ITEMS, "Device")
         assert item == self.ITEMS[1]
 
     def test_int_index_out_of_range_raises(self):
         with pytest.raises(wf.WFError, match="Device index out of range"):
-            wf._WsTransport._resolve_by_index_or_match(
-                5, self.ITEMS, "Device", self._match
-            )
-
-    def test_resolves_by_string_match(self):
-        item = wf._WsTransport._resolve_by_index_or_match(
-            "gw-2", self.ITEMS, "Device", self._match
-        )
-        assert item == self.ITEMS[1]
-
-    def test_resolves_by_string_match_secondary_field(self):
-        item = wf._WsTransport._resolve_by_index_or_match(
-            "Home", self.ITEMS, "Device", self._match
-        )
-        assert item == self.ITEMS[0]
-
-    def test_string_no_match_raises(self):
-        with pytest.raises(wf.WFError, match="Unable to find device: nope"):
-            wf._WsTransport._resolve_by_index_or_match(
-                "nope", self.ITEMS, "Device", self._match
-            )
-
-    def test_invalid_selector_type_raises(self):
-        with pytest.raises(wf.WFError, match="Unknown device type"):
-            wf._WsTransport._resolve_by_index_or_match(
-                3.5, self.ITEMS, "Device", self._match
-            )
+            wf._WsTransport._resolve_by_index(5, self.ITEMS, "Device")
 
 
 def test_public_names_reexported_from_waterfurnace_module():
