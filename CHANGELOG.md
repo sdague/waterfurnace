@@ -11,6 +11,13 @@
   mislabeling it as `WFCredentialError`, and the `GeoStar` vendor subclass
   wiring up GeoStar's base/login/websocket URLs. No behavior change.
 
+### Fixed
+- README's CLI Usage examples referenced a `waterfurnace read ...`
+  subcommand with `--energy`/`--continuous` flags directly on it. That
+  subcommand doesn't exist; the CLI has separate `sensors` and `energy`
+  subcommands, with `--continuous` belonging to `sensors`. Every example
+  now uses the real subcommand and flags.
+
 ### Changed
 - `read()` now checks `datadecoded["err"]` with the same early-raise style
   `write()` already used, instead of a negated `if not err: ... else: raise`.

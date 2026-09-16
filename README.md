@@ -44,31 +44,31 @@ subcommand.
 
 ```bash
 # One-shot sensor reading (password prompted if not provided)
-waterfurnace read -u user@example.com -p password
+waterfurnace sensors -u user@example.com -p password
 
 # Read specific sensors
-waterfurnace read -u user@example.com -p password -s enteringwatertemp,leavingairtemp
+waterfurnace sensors -u user@example.com -p password -s enteringwatertemp,leavingairtemp
 
 # Read all available sensors
-waterfurnace read -u user@example.com -p password -s all
+waterfurnace sensors -u user@example.com -p password -s all
 
 # Continuous monitoring (reads every 15 seconds)
-waterfurnace read -u user@example.com -p password --continuous
+waterfurnace sensors -u user@example.com -p password --continuous
 ```
 
 ### Energy data
 
 ```bash
 # Get hourly energy data for a date range
-waterfurnace read -u user@example.com -p password --energy \
+waterfurnace energy -u user@example.com -p password \
   --start 2024-01-01 --end 2024-01-31
 
 # Daily energy data in a specific timezone
-waterfurnace read -u user@example.com -p password --energy \
+waterfurnace energy -u user@example.com -p password \
   --start 2024-01-01 --end 2024-01-31 --freq 1D --timezone America/Chicago
 
 # 15-minute resolution energy data
-waterfurnace read -u user@example.com -p password --energy \
+waterfurnace energy -u user@example.com -p password \
   --start 2024-01-01 --end 2024-01-07 --freq 15min
 ```
 
@@ -89,13 +89,13 @@ waterfurnace set-heating-temp -u user@example.com -p password 68
 
 ```bash
 # GeoStar systems (--vendor accepts "waterfurnace" or "geostar")
-waterfurnace read -u user@example.com -p password --vendor geostar
+waterfurnace sensors -u user@example.com -p password --vendor geostar
 
 # Select a specific device in a multi-device system (0-indexed)
-waterfurnace read -u user@example.com -p password -D 1
+waterfurnace sensors -u user@example.com -p password -D 1
 
 # Select a specific location in a multi-location system (0-indexed)
-waterfurnace read -u user@example.com -p password -l 1
+waterfurnace sensors -u user@example.com -p password -l 1
 ```
 
 ### Environment variables
@@ -105,7 +105,7 @@ waterfurnace read -u user@example.com -p password -l 1
 export WF_USERNAME=user@example.com
 export WF_PASSWORD=your_password
 
-waterfurnace read
+waterfurnace sensors
 waterfurnace set-mode auto
 
 # Reuse an existing session ID
