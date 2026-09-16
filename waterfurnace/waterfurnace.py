@@ -351,7 +351,11 @@ class SymphonyGeothermal:
             raise WFNoDataError(
                 f"No energy data available for {start_date} to {end_date}"
             )
-        data = res.json()
+        try:
+            data = res.json()
+        except ValueError as e:
+            _LOGGER.exception("Error parsing energy data response: %s", e)
+            raise WFError(f"Invalid energy data response: {e}") from e
         _LOGGER.debug("Received energy data: %s records", len(data.get("index", [])))
         return WFEnergyData(data)
 
@@ -373,6 +377,8 @@ class SymphonyGeothermal:
         Raises:
             WFCredentialError: If not logged in, or if the session has
                 expired and a refresh-and-retry also fails to authenticate
+            ValueError: If start_date/end_date aren't valid YYYY-MM-DD
+                dates, or frequency isn't one of the supported values
             WFError: If API request fails
         """
         if not self._auth.sessionid or not self._transport.gwid:
@@ -382,6 +388,17 @@ class SymphonyGeothermal:
         valid_frequencies = ["1D", "1H", "15min"]
         if frequency not in valid_frequencies:
             raise ValueError(f"Invalid frequency. Must be one of {valid_frequencies}")
+
+        # Validated eagerly (rather than letting _request_energy_data's own
+        # parsing fail) so a bad date string raises ValueError here,
+        # uncaught, the same way the frequency check above does -- instead
+        # of being relabeled by the try/except below, which is only meant
+        # to catch a malformed *response* from the server.
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError as e:
+            raise ValueError(f"Invalid start_date/end_date: {e}") from e
 
         try:
             return self._request_energy_data(
@@ -395,9 +412,6 @@ class SymphonyGeothermal:
         except requests.exceptions.RequestException as e:
             _LOGGER.exception("Request error getting energy data: %s", e)
             raise WFError(f"Failed to get energy data: {e}") from e
-        except (ValueError, KeyError) as e:
-            _LOGGER.exception("Error parsing energy data response: %s", e)
-            raise WFError(f"Invalid energy data response: {e}") from e
 
 
 class WaterFurnace(SymphonyGeothermal):

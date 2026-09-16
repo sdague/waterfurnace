@@ -24,6 +24,14 @@
   `15`-second poll interval for `sensors --continuous`), each with a comment
   on why that value is what it is (or, for the latter, that no specific
   reason drives it). No behavior change.
+- `get_energy_data()` now validates `start_date`/`end_date` format eagerly
+  and raises a plain `ValueError`, instead of letting a bad date string
+  reach `_request_energy_data()` and get relabeled as `WFError("Invalid
+  energy data response: ...")` — a bad *input* was being reported as a bad
+  *response*. Also dropped the now-provably-dead `KeyError` from that
+  method's except clause, and narrowed the response-parsing try/except in
+  `_request_energy_data()` to wrap only the `res.json()` call it's actually
+  meant to protect.
 
 ### Removed
 - Removed the string-match branch (selecting a location/device by

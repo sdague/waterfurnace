@@ -778,6 +778,54 @@ class TestEnergyData(unittest.TestCase):
     @mock.patch("requests.get")
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")
+    def test_get_energy_data_invalid_start_date(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """An unparseable start_date raises ValueError, not WFError."""
+        mock_get.return_value = FakeRequest()
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(ValueError):
+            w.get_energy_data("not-a-date", "2026-01-04")
+
+        # Rejected before any energy-data request was attempted.
+        assert mock_get.call_count == 1
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
+    def test_get_energy_data_invalid_json_response(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """A response body that isn't valid JSON raises WFError."""
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        mock_response = mock.MagicMock()
+        mock_response.text = "not json"
+        mock_response.raise_for_status = mock.MagicMock()
+        mock_response.json.side_effect = requests.exceptions.JSONDecodeError(
+            "no JSON", "", 0
+        )
+        mock_get.side_effect = [FakeRequest(), mock_response]
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(wf.WFError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
     def test_get_energy_data_http_error(self, mock_post, mock_ws_create, mock_get):
         """Test get_energy_data handles HTTP errors."""
         import requests
