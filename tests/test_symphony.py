@@ -1009,6 +1009,42 @@ class TestEnergyData(unittest.TestCase):
     @mock.patch("requests.get")
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.post")
+    def test_get_energy_data_401_retry_fails_with_non_auth_error_propagates(
+        self, mock_post, mock_ws_create, mock_get
+    ):
+        """A 500 on the post-refresh retry propagates as-is, not as WFCredentialError.
+
+        Only a *second* 401/403 on retry is converted to WFCredentialError;
+        any other HTTPError on retry must raise unchanged.
+        """
+        mock_post.return_value = FakeRequest(cookies={"sessionid": "test_session_id"})
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        failed_response = mock.MagicMock()
+        failed_response.raise_for_status.side_effect = self._make_http_error(401)
+        retry_failed_response = mock.MagicMock()
+        retry_failed_response.raise_for_status.side_effect = self._make_http_error(500)
+
+        mock_get.side_effect = [
+            FakeRequest(),
+            failed_response,
+            FakeRequest(json_data={"emailaddress": "test@example.com"}),
+            retry_failed_response,
+        ]
+
+        w = wf.WaterFurnace("test@example.com", "password")
+        w.login()
+
+        with pytest.raises(wf.WFError):
+            w.get_energy_data("2026-01-03", "2026-01-04")
+
+        assert mock_get.call_count == 4
+
+    @mock.patch("requests.get")
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.post")
     def test_get_energy_data_401_session_refresh_failure_propagates(
         self, mock_post, mock_ws_create, mock_get
     ):
@@ -1157,6 +1193,52 @@ class TestSymphonyLocationMethods:
         symphony = self._create_symphony_instance(location=0)
         with pytest.raises(wf.WFError, match="Device index out of range"):
             symphony.login()
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_fails_for_location_missing_gateways_field(
+        self, mock_req, mock_get, mock_ws_create
+    ):
+        """Login raises if the selected location has no 'gateways' key at all.
+
+        Distinct from test_login_fails_for_location_with_no_devices, which
+        covers an empty gateways list (_resolve_by_index's index-out-of-
+        range path); this covers the field being absent entirely.
+        """
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        loc_data = {"description": "Home"}
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps(
+            {"err": "", "key": 1234, "locations": [loc_data]}
+        )
+        mock_ws_create.return_value = m_ws
+
+        symphony = self._create_symphony_instance(location=0)
+        with pytest.raises(wf.WFWebsocketClosedError):
+            symphony.login()
+
+
+class TestWFGateway:
+    """Tests for WFGateway construction."""
+
+    def test_missing_gwid_raises(self):
+        with pytest.raises(ValueError, match="Gateway data must contain 'gwid' field"):
+            wf.WFGateway({"description": "Home"})
+
+
+class TestGeoStar:
+    """Tests for the GeoStar vendor subclass."""
+
+    def test_geostar_uses_geostar_urls(self):
+        geostar = wf.GeoStar("test@example.com", "password")
+
+        assert geostar._auth.base_url == wf.GS_BASE_URL
+        assert geostar._auth.login_url == wf.GS_LOGIN_URL
+        assert geostar._transport.ws_url == wf.GS_WS_URL
 
 
 class TestResolveByIndex:

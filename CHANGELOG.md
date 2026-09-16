@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- Test coverage for four previously-untested code paths: `WFGateway`
+  rejecting data missing a `gwid` field, `_resolve_gwid` raising
+  `WFWebsocketClosedError` when a location is missing the `gateways` field
+  entirely (as opposed to an empty gateways list), `_with_http_auth_retry`
+  propagating a non-401/403 `HTTPError` on the post-refresh retry instead of
+  mislabeling it as `WFCredentialError`, and the `GeoStar` vendor subclass
+  wiring up GeoStar's base/login/websocket URLs. No behavior change.
+
 ### Changed
 - `read()` now checks `datadecoded["err"]` with the same early-raise style
   `write()` already used, instead of a negated `if not err: ... else: raise`.
