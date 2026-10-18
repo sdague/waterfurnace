@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- The websocket transport now keeps the selected gateway's `awlabctype`
+  and `awltstattype` from the login response (internal, on `_WsTransport`).
+  Which read fields a unit accepts depends on its hardware: requesting
+  `load_tank_temp` on anything but a 5 Series 3D (`awlabctype` 24) makes
+  the whole read fail with `MB_EXC_ILLEGAL_DATA_ADDRESS`. This is
+  groundwork for building the read request per unit (#31).
 - Test coverage for four previously-untested code paths: `WFGateway`
   rejecting data missing a `gwid` field, `_resolve_gwid` raising
   `WFWebsocketClosedError` when a location is missing the `gateways` field

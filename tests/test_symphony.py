@@ -310,6 +310,70 @@ class TestSymphony(unittest.TestCase):
     @mock.patch("websocket.create_connection")
     @mock.patch("requests.get")
     @mock.patch("requests.post")
+    def test_login_stores_gateway_types(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = json.dumps(
+            {
+                "err": "",
+                "key": 1234,
+                "locations": [
+                    {
+                        "gateways": [
+                            {"gwid": "gw-0", "awlabctype": 2, "awltstattype": 103},
+                            {"gwid": "gw-1", "awlabctype": 24, "awltstattype": 200},
+                        ]
+                    }
+                ],
+            }
+        )
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(
+            str(mock.sentinel.email), str(mock.sentinel.passwd), device=1
+        )
+        assert w._transport.awlabctype is None
+        assert w._transport.awltstattype is None
+        w.login()
+        assert w._transport.gwid == "gw-1"
+        assert w._transport.awlabctype == 24
+        assert w._transport.awltstattype == 200
+
+        # A later login whose gateway lacks the types must not keep stale ones
+        m_ws.recv.return_value = json.dumps(
+            {
+                "err": "",
+                "key": 1234,
+                "locations": [{"gateways": [{"gwid": "gw-0"}, {"gwid": "gw-1"}]}],
+            }
+        )
+        w.login()
+        assert w._transport.awlabctype is None
+        assert w._transport.awltstattype is None
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
+    def test_login_gateway_types_missing(self, mock_req, mock_get, mock_ws_create):
+        mock_get.return_value = FakeRequest()
+        mock_req.return_value = FakeRequest(
+            cookies={"sessionid": str(mock.sentinel.sessionid)},
+        )
+        m_ws = mock.MagicMock()
+        m_ws.recv.return_value = FAKE_CONTENT
+        mock_ws_create.return_value = m_ws
+
+        w = wf.WaterFurnace(str(mock.sentinel.email), str(mock.sentinel.passwd))
+        w.login()
+        assert w._transport.awlabctype is None
+        assert w._transport.awltstattype is None
+
+    @mock.patch("websocket.create_connection")
+    @mock.patch("requests.get")
+    @mock.patch("requests.post")
     def test_increment_tid(self, mock_req, mock_get, mock_ws_create):
         mock_get.return_value = FakeRequest()
         mock_req.return_value = FakeRequest(

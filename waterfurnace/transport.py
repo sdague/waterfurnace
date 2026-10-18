@@ -151,9 +151,9 @@ class _AuthSession:
 class _WsTransport:
     """Owns the websocket connection: login handshake, read, and write.
 
-    Holds tid, ws, gwid, account_id, and the resolved location data, all of
-    which only make sense in the context of an established websocket
-    session.
+    Holds tid, ws, gwid, account_id, the selected gateway's hardware types,
+    and the resolved location data, all of which only make sense in the
+    context of an established websocket session.
     """
 
     def __init__(self, ws_url, device=0, location=0):
@@ -162,6 +162,12 @@ class _WsTransport:
         self.location = location
         self.ws = None
         self.gwid = None
+        # Hardware types of the selected gateway, from the login response.
+        # Which read fields a unit supports depends on these (e.g.
+        # load_tank_temp only exists on awlabctype 24), so they're needed to
+        # build a read request the unit won't reject.
+        self.awlabctype = None
+        self.awltstattype = None
         self.tid = 0
         self.locations = None
         self.devices = None
@@ -223,7 +229,7 @@ class _WsTransport:
         return locations
 
     def _resolve_gwid(self, locations):
-        """Resolve self.location/self.device against locations and set gwid.
+        """Resolve self.location/self.device and set gwid and hardware types.
 
         Args:
             locations: Raw location dicts straight from the login response
@@ -242,6 +248,8 @@ class _WsTransport:
         device = self._resolve_by_index(self.device, gateways, "Device")
 
         self.gwid = device["gwid"]
+        self.awlabctype = device.get("awlabctype")
+        self.awltstattype = device.get("awltstattype")
 
     def _resolve_devices(self, locations):
         """Resolve self.location against locations and return its WFGateways.
