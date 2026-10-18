@@ -107,7 +107,7 @@ class TestFurnaceMode:
     def test_unknown_active_mode_is_none(self, value):
         r = reading(activesettings={"activemode": value})
         assert r.activesettings.mode is None
-        assert "mode" not in r.as_dict()["activesettings"]
+        assert r.as_dict()["activesettings"]["mode"] is None
 
 
 class TestNoSensorValue:
@@ -173,7 +173,9 @@ class TestExposedFields:
         assert r.homeautomationalarm1 == 0
         assert r.homeautomationalarm2 == 3
 
-    def test_unreported_fields_are_not_attributes(self):
+    def test_always_requested_fields_default_to_none(self):
+        # Fields in DATA_REQUEST's rlist are always attributes, even when
+        # the unit leaves them out, so callers can read them directly.
         r = wf.WFReading({"modeofoperation": 0})
         for attr in (
             "awlabctype",
@@ -182,24 +184,37 @@ class TestExposedFields:
             "lockedout",
             "lastlockout",
             "lastfault",
-            "load_tank_temp",
             "tstatroomtemp",
+            "tstatdehumidsetpoint",
         ):
-            assert not hasattr(r, attr), attr
-            assert attr not in r.as_dict(), attr
+            assert getattr(r, attr) is None, attr
+            assert r.as_dict()[attr] is None, attr
         assert r.modeofoperation == 0
 
-    def test_unreported_active_settings_are_not_attributes(self):
+    def test_every_rlist_field_is_an_attribute(self):
+        r = wf.WFReading({})
+        nested = {"lockoutstatus", "lastlockout", "humidity_offset_settings"}
+        for name in wf.DATA_REQUEST["rlist"]:
+            if name.lower() not in nested:
+                assert hasattr(r, name.lower()), name
+
+    def test_hardware_specific_fields_absent_when_unreported(self):
+        r = wf.WFReading({"modeofoperation": 0})
+        for attr in ("load_tank_temp", "hotwatertemp", "dhwsetpoint"):
+            assert not hasattr(r, attr), attr
+            assert attr not in r.as_dict(), attr
+
+    def test_unreported_active_settings_default_to_none(self):
         r = reading(activesettings={"activemode": 3})
         assert r.activesettings.activemode == 3
-        assert not hasattr(r.activesettings, "heatingsp_read")
-        assert r.as_dict()["activesettings"] == {"activemode": 3, "mode": "Heat"}
+        assert r.activesettings.heatingsp_read is None
+        assert r.as_dict()["activesettings"]["heatingsp_read"] is None
 
-    def test_lockout_values_absent_from_nested_dicts(self):
+    def test_lockout_values_missing_from_nested_dicts(self):
         r = reading(lockoutstatus={"lockedout": 1}, lastlockout={})
         assert r.lockedout == 1
-        assert not hasattr(r, "lockoutstatuscode")
-        assert not hasattr(r, "lastlockout")
+        assert r.lockoutstatuscode is None
+        assert r.lastlockout is None
 
     def test_load_tank_temp(self):
         assert reading(load_tank_temp=101.5).load_tank_temp == 101.5
@@ -231,7 +246,11 @@ class TestAsDict:
 
     def test_empty_response(self):
         d = wf.WFReading({}).as_dict()
-        assert d == {"zone": 0, "err": "", "awlid": "", "tid": 0}
+        assert d["zone"] == 0
+        assert d["tstatroomtemp"] is None
+        assert d["mode"] is None
+        assert d["activesettings"]["mode"] is None
+        assert "load_tank_temp" not in d
 
     def test_repr_tolerates_missing_values(self):
         # An error payload has none of the numeric fields.

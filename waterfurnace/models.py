@@ -12,11 +12,12 @@ def _sensor_temp(value):
     return value
 
 
-def _set_fields(obj, data, fields, convert=None):
+def _set_reported(obj, data, fields, convert=None):
     """Copy each of fields from data onto obj, skipping any data lacks.
 
-    Fields the unit didn't report are left unset rather than set to None,
-    so an attribute only exists if the server actually returned it.
+    Used for hardware-specific fields (see ABCTYPE_EXTRA_FIELDS), which stay
+    unset rather than None when not reported, so an attribute only exists if
+    this unit has that sensor.
     """
     for name in fields:
         if name in data:
@@ -52,56 +53,47 @@ class ActiveSettings:
 
         # mode (activemode indexes ACTIVE_MODE; tstatmode is the thermostat's
         # own mode setting)
-        _set_fields(self, data, ("activemode", "tstatmode"))
+        self.activemode = data.get("activemode")
+        self.tstatmode = data.get("tstatmode")
 
         # setpoints (degrees F)
-        _set_fields(self, data, ("heatingsp_read", "coolingsp_read"))
+        self.heatingsp_read = data.get("heatingsp_read")
+        self.coolingsp_read = data.get("coolingsp_read")
 
         # fan
-        _set_fields(
-            self, data, ("fanmode_read", "intertimeon_read", "intertimeoff_read")
-        )
+        self.fanmode_read = data.get("fanmode_read")
+        self.intertimeon_read = data.get("intertimeon_read")
+        self.intertimeoff_read = data.get("intertimeoff_read")
 
         # hold/override flags
-        _set_fields(
-            self,
-            data,
-            (
-                "temporaryoverride",
-                "permanenthold",
-                "vacationhold",
-                "onpeakhold",
-                "superboost",
-            ),
-        )
+        self.temporaryoverride = data.get("temporaryoverride")
+        self.permanenthold = data.get("permanenthold")
+        self.vacationhold = data.get("vacationhold")
+        self.onpeakhold = data.get("onpeakhold")
+        self.superboost = data.get("superboost")
 
     @property
     def mode(self):
-        return _lookup(ACTIVE_MODE, getattr(self, "activemode", None))
+        return _lookup(ACTIVE_MODE, self.activemode)
 
     def as_dict(self):
-        """Return the settings as a dict of only the fields the unit reported.
-
-        Includes the derived mode when it resolves.
-        """
-        d = _readings(self)
-        if self.mode is not None:
-            d["mode"] = self.mode
-        return d
+        """Return the settings as a dict, including the derived mode."""
+        return {**_readings(self), "mode": self.mode}
 
     def __repr__(self):
         return (
             f"<ActiveSettings mode={self.mode}, "
-            f"heatingsp={getattr(self, 'heatingsp_read', None)}, "
-            f"coolingsp={getattr(self, 'coolingsp_read', None)}>"
+            f"heatingsp={self.heatingsp_read}, coolingsp={self.coolingsp_read}>"
         )
 
 
 class WFReading:
     """A read response from the unit.
 
-    Each reading is an attribute only if the unit returned it, so use
-    getattr(reading, name, None) for fields that depend on the hardware.
+    Every field in DATA_REQUEST's rlist is always an attribute, None if the
+    unit didn't report it. Hardware-specific fields (load_tank_temp,
+    hotwatertemp, dhwsetpoint; see ABCTYPE_EXTRA_FIELDS) are only
+    attributes when reported, so use getattr(reading, name, None) for those.
     """
 
     def __init__(self, data=None):
@@ -115,132 +107,107 @@ class WFReading:
         self.tid = data.get("tid", 0)
 
         # hardware types (see WFGateway for the descriptions)
-        _set_fields(self, data, ("awlabctype", "awltstattype"))
+        self.awlabctype = data.get("awlabctype")
+        self.awltstattype = data.get("awltstattype")
 
         # power (Watts)
-        _set_fields(
-            self,
-            data,
-            (
-                "compressorpower",
-                "fanpower",
-                "auxpower",
-                "looppumppower",
-                "totalunitpower",
-            ),
-        )
+        self.compressorpower = data.get("compressorpower")
+        self.fanpower = data.get("fanpower")
+        self.auxpower = data.get("auxpower")
+        self.looppumppower = data.get("looppumppower")
+        self.totalunitpower = data.get("totalunitpower")
 
         # modes (modeofoperation indexes FURNACE_MODE; tstatmode is the
         # thermostat's own mode setting, also found in activesettings)
-        _set_fields(self, data, ("modeofoperation", "tstatmode"))
+        self.modeofoperation = data.get("modeofoperation")
+        self.tstatmode = data.get("tstatmode")
 
-        # fan speed (0 - 10), compressor speed
-        _set_fields(self, data, ("airflowcurrentspeed", "actualcompressorspeed"))
+        # fan speed (0 - 10)
+        self.airflowcurrentspeed = data.get("airflowcurrentspeed")
+
+        # compressor speed
+        self.actualcompressorspeed = data.get("actualcompressorspeed")
 
         # outputs (0/1): compressor stages 1/2, electric heat stages 1/2
-        _set_fields(
-            self,
-            data,
-            ("auroraoutputcc", "auroraoutputcc2", "auroraoutputeh1", "auroraoutputeh2"),
-        )
+        self.auroraoutputcc = data.get("auroraoutputcc")
+        self.auroraoutputcc2 = data.get("auroraoutputcc2")
+        self.auroraoutputeh1 = data.get("auroraoutputeh1")
+        self.auroraoutputeh2 = data.get("auroraoutputeh2")
 
         # humidity (%)
-        _set_fields(
-            self,
-            data,
-            (
-                "tstatdehumidsetpoint",
-                "tstathumidsetpoint",
-                "tstatrelativehumidity",
-                "humidity",
-            ),
-        )
+        self.tstatdehumidsetpoint = data.get("tstatdehumidsetpoint")
+        self.tstathumidsetpoint = data.get("tstathumidsetpoint")
+        self.tstatrelativehumidity = data.get("tstatrelativehumidity")
+        self.humidity = data.get("humidity")
 
-        # temps (degrees F)
-        _set_fields(self, data, ("tstatroomtemp", "roomtemp"))
-        # None when the unit reports the sensor isn't present.
-        # aocenteringwatertemp stands in for enteringwatertemp on variable
-        # speed units without the main sensor. load_tank_temp and the
-        # domestic hot water temp are only requested from some hardware (see
-        # ABCTYPE_EXTRA_FIELDS).
-        _set_fields(
-            self,
-            data,
-            (
-                "leavingairtemp",
-                "enteringwatertemp",
-                "aocenteringwatertemp",
-                "leavingwatertemp",
-                "outdoorair",
-                "load_tank_temp",
-                "hotwatertemp",
-            ),
-            convert=_sensor_temp,
-        )
+        # temps (degrees F), None when the sensor isn't present
+        self.leavingairtemp = _sensor_temp(data.get("leavingairtemp"))
+        self.tstatroomtemp = data.get("tstatroomtemp")
+        self.roomtemp = data.get("roomtemp")
+        self.enteringwatertemp = _sensor_temp(data.get("enteringwatertemp"))
+        # entering water temp on variable speed units without the main sensor
+        self.aocenteringwatertemp = _sensor_temp(data.get("aocenteringwatertemp"))
+        self.leavingwatertemp = _sensor_temp(data.get("leavingwatertemp"))
+        self.outdoorair = _sensor_temp(data.get("outdoorair"))
 
         # setpoints (degrees F)
-        _set_fields(
-            self,
-            data,
-            (
-                "tstatheatingsetpoint",
-                "tstatcoolingsetpoint",
-                "tstatactivesetpoint",
-                "dhwsetpoint",
-            ),
-        )
+        self.tstatheatingsetpoint = data.get("tstatheatingsetpoint")
+        self.tstatcoolingsetpoint = data.get("tstatcoolingsetpoint")
+        self.tstatactivesetpoint = data.get("tstatactivesetpoint")
 
         # Loop water flow rate (gallons per minute)
-        _set_fields(self, data, ("waterflowrate",))
+        self.waterflowrate = data.get("waterflowrate")
 
         # faults and lockouts, flattened from their nested dicts
-        _set_fields(
-            self, data.get("lockoutstatus") or {}, ("lockoutstatuscode", "lockedout")
-        )
-        lastlockout = data.get("lastlockout") or {}
-        if "lockoutstatuslast" in lastlockout:
-            self.lastlockout = lastlockout["lockoutstatuslast"]
-        _set_fields(self, data, ("lastfault",))
+        lockoutstatus = data.get("lockoutstatus") or {}
+        self.lockoutstatuscode = lockoutstatus.get("lockoutstatuscode")
+        self.lockedout = lockoutstatus.get("lockedout")
+        self.lastlockout = (data.get("lastlockout") or {}).get("lockoutstatuslast")
+        self.lastfault = data.get("lastfault")
 
         # home automation alarm inputs, reported as lockout codes 23/24.
         # 0 None, 1 General, 2 Security, 3 Sump, 4 Carbon Monoxide,
         # 5 Dirty Filter
-        _set_fields(self, data, ("homeautomationalarm1", "homeautomationalarm2"))
+        self.homeautomationalarm1 = data.get("homeautomationalarm1")
+        self.homeautomationalarm2 = data.get("homeautomationalarm2")
+
+        # hardware-specific: hydronic load tank (degrees F) on the 5 Series
+        # 3D, and domestic hot water temp/setpoint (degrees F)
+        _set_reported(
+            self, data, ("load_tank_temp", "hotwatertemp"), convert=_sensor_temp
+        )
+        _set_reported(self, data, ("dhwsetpoint",))
 
         # raw humidity settings for write passthrough
         self.raw_humidity_offset_settings = data.get("humidity_offset_settings", {})
 
-        # active settings, always present so .activesettings.mode is safe
+        # active settings
         self.activesettings = ActiveSettings(data.get("activesettings"))
 
     @property
     def mode(self):
-        return _lookup(FURNACE_MODE, getattr(self, "modeofoperation", None))
+        return _lookup(FURNACE_MODE, self.modeofoperation)
 
     def as_dict(self):
         """Return the reading as a JSON-serializable dict.
 
-        Contains only the fields the unit reported, plus the derived mode
-        strings when they resolve. Excludes the raw response (see self.raw).
+        Includes the derived mode strings. Hardware-specific fields only
+        appear when the unit reported them. Excludes the raw response (see
+        self.raw).
         """
-        d = _readings(self)
-        if self.mode is not None:
-            d["mode"] = self.mode
-        if "activesettings" in self.raw:
-            d["activesettings"] = self.activesettings.as_dict()
-        return d
+        return {
+            **_readings(self),
+            "mode": self.mode,
+            "activesettings": self.activesettings.as_dict(),
+        }
 
     def __repr__(self):
-        def field(name):
-            return getattr(self, name, None)
-
         return (
-            f"<FurnaceReading power={field('totalunitpower')}, mode={self.mode}, "
+            f"<FurnaceReading power={self.totalunitpower}, mode={self.mode}, "
             f"activemode={self.activesettings.mode}, "
-            f"looptemp={field('enteringwatertemp')}, "
-            f"airtemp={field('leavingairtemp')}, "
-            f"roomtemp={field('tstatroomtemp')}, "
-            f"setpoint={field('tstatactivesetpoint')}>"
+            f"looptemp={self.enteringwatertemp}, "
+            f"airtemp={self.leavingairtemp}, roomtemp={self.tstatroomtemp}, "
+            f"setpoint={self.tstatactivesetpoint}>"
         )
 
 

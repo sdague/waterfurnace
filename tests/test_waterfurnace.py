@@ -164,7 +164,7 @@ def test_sensors_text_skips_unreported(fake_client):
     assert result.exit_code == 0, result.output
     assert "outdoorair = 55.2" in result.stdout
     assert "load_tank_temp" not in result.stdout
-    assert "Not reported by this unit: load_tank_temp" in result.stderr
+    assert "Not available on this unit: load_tank_temp" in result.stderr
 
 
 def test_sensors_continuous_json_one_object_per_line(fake_client, monkeypatch):

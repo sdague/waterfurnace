@@ -194,14 +194,14 @@ def sensors_cmd(
         elif sensors is None and output_format == "text":
             click.echo(data)
         else:
-            # Only fields the unit reported are included.
+            # Hardware-specific fields are only present if the unit has them.
             values = data.as_dict()
             if sensors is not None and sensors != "all":
                 names = sensors.split(",")
                 missing = [name for name in names if name not in values]
                 if missing:
                     click.echo(
-                        f"Not reported by this unit: {', '.join(missing)}",
+                        f"Not available on this unit: {', '.join(missing)}",
                         err=True,
                     )
                 values = {name: values[name] for name in names if name in values}

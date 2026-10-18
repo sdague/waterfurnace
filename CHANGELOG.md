@@ -63,15 +63,17 @@
   now uses the real subcommand and flags.
 
 ### Changed
-- `WFReading` and `ActiveSettings` only have attributes for fields the unit
-  actually returned, instead of setting unreported fields to `None`.
-  Fields that depend on the hardware should be read with
-  `getattr(reading, name, None)`. `zone`, `err`, `awlid`, `tid`,
-  `activesettings` and the `mode` properties are always available.
+- Hardware-specific fields (`load_tank_temp`, `hotwatertemp`,
+  `dhwsetpoint`) are only attributes of `WFReading`, and only appear in
+  `as_dict()` and the CLI output, when the unit reported them, so it's
+  clear which sensors a unit has. Read them with
+  `getattr(reading, name, None)`. Every field that's always requested
+  still exists, as `None` if the unit left it out.
 - `set_humidity` raises `WFError` if the unit didn't report its
   dehumidification setpoint, rather than writing `None` over it.
-- `waterfurnace sensors -s` warns on stderr about requested names the unit
-  didn't report.
+- `waterfurnace sensors -s` warns on stderr about requested names that
+  aren't available on this unit (hardware-specific fields it doesn't have,
+  or unknown names).
 - `read()` now checks `datadecoded["err"]` with the same early-raise style
   `write()` already used, instead of a negated `if not err: ... else: raise`.
   No behavior change; purely a stylistic consistency fix.

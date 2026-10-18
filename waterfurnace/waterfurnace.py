@@ -299,7 +299,7 @@ class SymphonyGeothermal:
         """
         self._validate("humidity", humidity)
         reading = self.read()
-        if not hasattr(reading, "tstatdehumidsetpoint"):
+        if reading.tstatdehumidsetpoint is None:
             # Writing the pair without it would clobber the dehumidification
             # setpoint, so refuse rather than guess.
             raise WFError(
