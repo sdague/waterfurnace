@@ -18,6 +18,10 @@
   wiring up GeoStar's base/login/websocket URLs. No behavior change.
 
 ### Fixed
+- The CLI crashed after every successful login with `AttributeError:
+  'WaterFurnace' object has no attribute 'sessionid'`, since the session id
+  moved onto the internal auth session. `SymphonyGeothermal.sessionid` is
+  back as a read-only property.
 - README's CLI Usage examples referenced a `waterfurnace read ...`
   subcommand with `--energy`/`--continuous` flags directly on it. That
   subcommand doesn't exist; the CLI has separate `sensors` and `energy`

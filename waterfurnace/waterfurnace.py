@@ -179,6 +179,10 @@ class SymphonyGeothermal:
     def device(self):
         return self._transport.device
 
+    @property
+    def sessionid(self):
+        return self._auth.sessionid
+
     def login(self):
         self._auth.get_session_id()
         self._transport.login(self._auth.sessionid)

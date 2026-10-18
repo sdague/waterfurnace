@@ -1360,3 +1360,11 @@ def test_public_names_reexported_from_waterfurnace_module():
     ]
     for name in expected_names:
         assert hasattr(wf, name), f"waterfurnace.waterfurnace.{name} is missing"
+
+
+def test_sessionid_reflects_auth_session():
+    # The CLI prints wf.sessionid after login.
+    w = wf.WaterFurnace("user", "pass", sessionid="abc")
+    assert w.sessionid == "abc"
+    w._auth.sessionid = "refreshed"
+    assert w.sessionid == "refreshed"
