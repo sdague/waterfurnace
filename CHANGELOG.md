@@ -3,6 +3,29 @@
 ## [Unreleased]
 
 ### Added
+- `WFReading` now exposes fields that were already requested from the unit
+  but silently dropped: `awlabctype`, `awltstattype`, the compressor and
+  electric heat stage outputs (`auroraoutputcc`/`cc2`/`eh1`/`eh2`),
+  `outdoorair`, `humidity`, `roomtemp`, `tstatmode`,
+  `aocenteringwatertemp`, the fault/lockout state (`lockoutstatuscode`,
+  `lockedout`, `lastlockout`, `lastfault`, flattened to scalars so they can
+  back sensors directly), and the home automation alarm inputs. Also adds
+  `as_dict()` and `raw` (the unmodified response).
+- 5 Series 3D units (`awlabctype` 24) now also read `load_tank_temp`, the
+  hydronic load tank temperature the Symphony dashboard shows (#31). It's
+  only requested on that hardware, as the dashboard does, because asking
+  any other unit for it fails the entire read.
+- Dual Capacity (`awlabctype` 2) and 5 Series 3D (`awlabctype` 24) units
+  now also read the domestic hot water temperature (`hotwatertemp`) and
+  setpoint (`dhwsetpoint`) (#31). The Symphony dashboard doesn't use these,
+  so there's no official list of which hardware has them, and requesting
+  one a unit lacks fails the entire read. They're enabled only for the
+  types they've been seen working on. We're happy to enable them for other
+  hardware types: open an issue with your `awlabctype` and the output of
+  `waterfurnace sensors --format raw` from a build with the type added to
+  `ABCTYPE_EXTRA_FIELDS`, showing the read succeeds.
+- `waterfurnace sensors --format json|raw` dumps the parsed reading or the
+  raw response as JSON, with status lines on stderr so stdout can be piped.
 - The websocket transport now keeps the selected gateway's `awlabctype`
   and `awltstattype` from the login response (internal, on `_WsTransport`).
   Which read fields a unit accepts depends on its hardware: requesting
@@ -18,6 +41,17 @@
   wiring up GeoStar's base/login/websocket URLs. No behavior change.
 
 ### Fixed
+- `WFReading.mode` raised `IndexError` for operating modes 10-14 (Unknown,
+  Defrost, Hydronic, Hydronic with Air Heating, EH Hydronic Transition),
+  which GeoReady and hydronic units report. Those modes now have labels,
+  and any other unrecognized value gives `None` rather than an exception.
+  The labels for modes 0-9 are unchanged.
+- Temperatures the unit reports as `-999.9` (its "sensor not present"
+  value, shown as N/A in the Symphony dashboard) are now `None` instead of
+  being passed through as a real reading. Home Assistant sensors that
+  showed -999.9 will now show unknown.
+- `WFReading`'s repr no longer raises `TypeError` when numeric fields are
+  missing.
 - The CLI crashed after every successful login with `AttributeError:
   'WaterFurnace' object has no attribute 'sessionid'`, since the session id
   moved onto the internal auth session. `SymphonyGeothermal.sessionid` is
@@ -29,6 +63,15 @@
   now uses the real subcommand and flags.
 
 ### Changed
+- `WFReading` and `ActiveSettings` only have attributes for fields the unit
+  actually returned, instead of setting unreported fields to `None`.
+  Fields that depend on the hardware should be read with
+  `getattr(reading, name, None)`. `zone`, `err`, `awlid`, `tid`,
+  `activesettings` and the `mode` properties are always available.
+- `set_humidity` raises `WFError` if the unit didn't report its
+  dehumidification setpoint, rather than writing `None` over it.
+- `waterfurnace sensors -s` warns on stderr about requested names the unit
+  didn't report.
 - `read()` now checks `datadecoded["err"]` with the same early-raise style
   `write()` already used, instead of a negated `if not err: ... else: raise`.
   No behavior change; purely a stylistic consistency fix.

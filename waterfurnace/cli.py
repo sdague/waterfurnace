@@ -1,6 +1,7 @@
 """Console script for waterfurnace."""
 
 import datetime
+import json
 import logging
 import time
 
@@ -79,7 +80,14 @@ def common_options(func):
     return func
 
 
-def get_client(user, passwd, sessionid, device, location, vendor, debug):
+def get_client(
+    user, passwd, sessionid, device, location, vendor, debug, status_err=False
+):
+    """Log in and return the client.
+
+    status_err sends the login status lines to stderr, so that stdout can
+    carry only machine-readable output.
+    """
     if debug:
         logger.setLevel(logging.DEBUG)
 
@@ -93,13 +101,16 @@ def get_client(user, passwd, sessionid, device, location, vendor, debug):
         )
     wf.login()
 
-    click.echo(f"Login Succeeded: session_id = {wf.sessionid}")
+    click.echo(f"Login Succeeded: session_id = {wf.sessionid}", err=status_err)
 
     if wf.locations and location < len(wf.locations):
-        click.echo(f"Selected Location: {wf.locations[location].description}")
+        click.echo(
+            f"Selected Location: {wf.locations[location].description}",
+            err=status_err,
+        )
 
     if wf.devices and device < len(wf.devices):
-        click.echo(f"Selected Device: {wf.devices[device].description}")
+        click.echo(f"Selected Device: {wf.devices[device].description}", err=status_err)
 
     return wf
 
@@ -137,32 +148,68 @@ def main():
     is_flag=True,
     help=f"Read sensors every {CONTINUOUS_READ_INTERVAL} seconds continuously",
 )
+@click.option(
+    "-f",
+    "--format",
+    "output_format",
+    required=False,
+    default="text",
+    show_default=True,
+    type=click.Choice(["text", "json", "raw"]),
+    help="text: summary or name = value lines. json: parsed fields as JSON. "
+    "raw: the unmodified response from the unit as JSON.",
+)
 def sensors_cmd(
-    user, passwd, sessionid, device, location, vendor, debug, sensors, continuous
+    user,
+    passwd,
+    sessionid,
+    device,
+    location,
+    vendor,
+    debug,
+    sensors,
+    continuous,
+    output_format,
 ):
     """Read live sensor data from the unit."""
-    click.echo("\nStep 1: Login")
-    wf = get_client(user, passwd, sessionid, device, location, vendor, debug)
+    # Keep stdout to just the data for json/raw, so it can be piped.
+    status_err = output_format != "text"
+    click.echo("\nStep 1: Login", err=status_err)
+    wf = get_client(
+        user, passwd, sessionid, device, location, vendor, debug, status_err
+    )
 
     while True:
         dt = datetime.datetime.now()
         now = dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        click.echo("")
-        click.echo(f"Attempting to read data {now}")
+        click.echo("", err=status_err)
+        click.echo(f"Attempting to read data {now}", err=status_err)
         data = wf.read()
 
-        if sensors is None:
+        # One object per line when continuous, so the stream stays parseable.
+        indent = None if continuous else 2
+        if output_format == "raw":
+            click.echo(json.dumps(data.raw, indent=indent))
+        elif sensors is None and output_format == "text":
             click.echo(data)
         else:
-            if sensors == "all":
-                attrs = dir(data)
-                sensorlist = [attr for attr in attrs if not attr.startswith("_")]
+            # Only fields the unit reported are included.
+            values = data.as_dict()
+            if sensors is not None and sensors != "all":
+                names = sensors.split(",")
+                missing = [name for name in names if name not in values]
+                if missing:
+                    click.echo(
+                        f"Not reported by this unit: {', '.join(missing)}",
+                        err=True,
+                    )
+                values = {name: values[name] for name in names if name in values}
+            if output_format == "json":
+                click.echo(json.dumps(values, indent=indent))
             else:
-                sensorlist = list(sensors.split(","))
-
-            for sensor in sensorlist:
-                click.echo(f"{sensor} = {getattr(data, sensor)}")
+                for name in sorted(values) if sensors == "all" else values:
+                    click.echo(f"{name} = {values[name]}")
 
         if continuous:
             time.sleep(CONTINUOUS_READ_INTERVAL)

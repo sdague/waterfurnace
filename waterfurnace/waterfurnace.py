@@ -299,6 +299,13 @@ class SymphonyGeothermal:
         """
         self._validate("humidity", humidity)
         reading = self.read()
+        if not hasattr(reading, "tstatdehumidsetpoint"):
+            # Writing the pair without it would clobber the dehumidification
+            # setpoint, so refuse rather than guess.
+            raise WFError(
+                "Unit did not report its dehumidification setpoint; "
+                "can't set humidity without overwriting it"
+            )
         return self._ws_write(
             humidity_offset_settings=reading.raw_humidity_offset_settings,
             dehumid_humid_sp={

@@ -323,6 +323,19 @@ class TestSetHumidity:
         assert sent["humidity_offset_settings"]["humdity_control_option"] == 1
         assert sent["humidity_offset_settings"]["humidity_offset"] == 0
 
+    def test_missing_dehumid_setpoint_raises_wferror(
+        self, mock_waterfurnace_client, sample_reading_data
+    ):
+        client = mock_waterfurnace_client
+        reading_data = dict(sample_reading_data)
+        del reading_data["tstatdehumidsetpoint"]
+        client._transport.ws.recv_data.append(json.dumps(reading_data))
+        sent_before = len(client._transport.ws.sent_messages)
+        with pytest.raises(wf.WFError, match="dehumidification setpoint"):
+            client.set_humidity(48)
+        # Only the read went out; no write with a missing setpoint.
+        assert len(client._transport.ws.sent_messages) == sent_before + 1
+
     def test_out_of_range_low(self, mock_waterfurnace_client):
         with pytest.raises(ValueError, match="humidity must be an integer"):
             mock_waterfurnace_client.set_humidity(14)

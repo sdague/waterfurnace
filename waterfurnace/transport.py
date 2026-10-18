@@ -12,6 +12,7 @@ import requests
 import websocket
 
 from .const import (
+    ABCTYPE_EXTRA_FIELDS,
     DATA_REQUEST,
     FAILED_LOGIN,
     TIMEOUT,
@@ -338,6 +339,7 @@ class _WsTransport:
         req = copy.deepcopy(DATA_REQUEST)
         req["tid"] = self.tid
         req["awlid"] = self.gwid
+        req["rlist"].extend(ABCTYPE_EXTRA_FIELDS.get(self.awlabctype, []))
 
         datadecoded = self.send(req)
         _LOGGER.debug("Resp: %s", datadecoded)

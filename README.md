@@ -54,6 +54,12 @@ waterfurnace sensors -u user@example.com -p password -s all
 
 # Continuous monitoring (reads every 15 seconds)
 waterfurnace sensors -u user@example.com -p password --continuous
+
+# All parsed fields as JSON (status lines go to stderr, so this pipes cleanly)
+waterfurnace sensors -u user@example.com -p password --format json | jq .
+
+# The unmodified response from the unit, for fields the library doesn't map
+waterfurnace sensors -u user@example.com -p password --format raw
 ```
 
 ### Energy data

@@ -19,6 +19,14 @@ FURNACE_MODE = (
     "E-Heat",
     "Aux Heat",
     "Lockout",
+    # 10+ come from the Symphony dashboard's modes_of_operation_enum. Defrost
+    # is reported by GeoReady units and the hydronic modes by units with a
+    # hydronic load (e.g. the 5 Series 3D).
+    "Unknown",
+    "Defrost",
+    "Hydronic",
+    "Hydronic with Air Heating",
+    "EH Hydronic Transition",
 )
 
 ACTIVE_MODE = (
@@ -113,6 +121,25 @@ DATA_REQUEST = {
     ],
     "source": "consumer dashboard",
 }
+
+# Extra rlist fields requested only for specific AWLABCType values. These
+# can't go in DATA_REQUEST unconditionally: requesting a field the unit
+# doesn't have fails the entire read with MB_EXC_ILLEGAL_DATA_ADDRESS rather
+# than returning null for that field.
+#
+# load_tank_temp is what the Symphony dashboard requests for type 24. The
+# dashboard never requests the domestic hot water fields, so they're only
+# listed for types they've been verified on; other types can be added once
+# someone confirms reads still succeed with them.
+_DHW_FIELDS = ["hotwatertemp", "dhwsetpoint"]
+ABCTYPE_EXTRA_FIELDS = {
+    2: _DHW_FIELDS,  # Dual Capacity
+    24: ["load_tank_temp", *_DHW_FIELDS],  # 5 Series 3D hydronic load tank
+}
+
+# Sentinel the unit reports for a temperature sensor that isn't installed or
+# isn't reading. The Symphony dashboard displays it as "N/A".
+NO_SENSOR_VALUE = -999.9
 
 
 class WFException(Exception):

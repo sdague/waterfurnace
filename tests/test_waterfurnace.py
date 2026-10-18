@@ -2,10 +2,14 @@
 
 """Tests for `waterfurnace` package."""
 
+import json
+from unittest import mock
+
 import pytest
 from click.testing import CliRunner
 
 from waterfurnace import cli
+from waterfurnace.models import WFReading
 
 
 @pytest.fixture
@@ -102,3 +106,100 @@ def test_energy_requires_end():
     )
     assert result.exit_code != 0
     assert "end" in result.output.lower() or "missing" in result.output.lower()
+
+
+SENSOR_RESPONSE = {
+    "err": "",
+    "modeofoperation": 12,
+    "outdoorair": 55.2,
+    "leavingairtemp": -999.9,
+    "lockoutstatus": {"lockoutstatuscode": 0, "lockedout": 0},
+    "activesettings": {"activemode": 3},
+}
+
+
+@pytest.fixture
+def fake_client(monkeypatch):
+    client = mock.MagicMock()
+    client.sessionid = "sess"
+    client.locations = []
+    client.devices = []
+    client.read.return_value = WFReading(dict(SENSOR_RESPONSE))
+    monkeypatch.setattr(
+        cli.waterfurnace.waterfurnace, "WaterFurnace", lambda *a, **kw: client
+    )
+    return client
+
+
+def _sensors(*args):
+    runner = CliRunner()
+    return runner.invoke(
+        cli.main, ["sensors", "-u", "user@example.com", "-p", "pass", *args]
+    )
+
+
+def test_sensors_json_stdout_is_only_json(fake_client):
+    result = _sensors("--format", "json")
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)
+    assert data["mode"] == "Hydronic"
+    assert data["outdoorair"] == 55.2
+    assert data["leavingairtemp"] is None
+    assert data["activesettings"]["mode"] == "Heat"
+    assert "Login Succeeded" in result.stderr
+
+
+def test_sensors_json_selected(fake_client):
+    result = _sensors("--format", "json", "-s", "mode,outdoorair")
+    assert json.loads(result.stdout) == {"mode": "Hydronic", "outdoorair": 55.2}
+
+
+def test_sensors_json_omits_unreported(fake_client):
+    result = _sensors("--format", "json", "-s", "mode,load_tank_temp")
+    assert json.loads(result.stdout) == {"mode": "Hydronic"}
+
+
+def test_sensors_text_skips_unreported(fake_client):
+    result = _sensors("-s", "outdoorair,load_tank_temp")
+    assert result.exit_code == 0, result.output
+    assert "outdoorair = 55.2" in result.stdout
+    assert "load_tank_temp" not in result.stdout
+    assert "Not reported by this unit: load_tank_temp" in result.stderr
+
+
+def test_sensors_continuous_json_one_object_per_line(fake_client, monkeypatch):
+    # Stop the loop after the second sleep.
+    sleeps = []
+
+    def fake_sleep(_):
+        sleeps.append(1)
+        if len(sleeps) == 2:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli.time, "sleep", fake_sleep)
+    result = _sensors("--format", "json", "--continuous")
+    lines = result.stdout.splitlines()
+    assert len(lines) == 2
+    assert all(json.loads(line)["mode"] == "Hydronic" for line in lines)
+
+
+def test_sensors_raw_is_unmodified_response(fake_client):
+    result = _sensors("--format", "raw")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == SENSOR_RESPONSE
+
+
+def test_sensors_text_all_lists_fields_not_methods(fake_client):
+    result = _sensors("-s", "all")
+    assert result.exit_code == 0, result.output
+    assert "outdoorair = 55.2" in result.stdout
+    assert "mode = Hydronic" in result.stdout
+    assert "as_dict" not in result.stdout
+    assert "raw =" not in result.stdout
+
+
+def test_sensors_text_default_shows_summary(fake_client):
+    result = _sensors()
+    assert result.exit_code == 0, result.output
+    assert "Login Succeeded" in result.stdout
+    assert "<FurnaceReading" in result.stdout
