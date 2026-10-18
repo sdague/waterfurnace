@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.10.0] - 2026-10-18
 
 ### Added
 - `WFReading` now exposes fields that were already requested from the unit
